@@ -1,0 +1,6 @@
+{
+  "name": "AuraPK - Modern Pakistan E-Commerce & Play Store App",
+  "description": "Next-gen Pakistan e-commerce platform featuring PKR currency, local courier tracking, Cash on Delivery, JazzCash & Easypaisa checkout, PWA installability, and Google Play Store TWA readiness.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
