@@ -1,7 +1,24 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, CartItem, ProductVariant, Order, UserProfile, Coupon, FilterState, ShippingAddress, ActiveView, CourierLogisticsSettings } from '../types';
-import { PRODUCTS as INITIAL_PRODUCTS, CATEGORIES as INITIAL_CATEGORIES } from '../data/mockProducts';
-import { PAKISTAN_CITIES, AVAILABLE_COUPONS, CityInfo } from '../data/pakistanLocations';
+import { 
+  Product, 
+  CartItem, 
+  ProductVariant, 
+  Order, 
+  UserProfile, 
+  Coupon, 
+  FilterState, 
+  ShippingAddress, 
+  ActiveView, 
+  CourierLogisticsSettings,
+  SiteDesignSettings,
+  SalesCampaignSettings,
+  HeroSlideConfig,
+  PromoBannerConfig,
+  BankAccountOption,
+  BankTransferSettings
+} from '../types';
+import { PRODUCTS as INITIAL_PRODUCTS, CATEGORIES as INITIAL_CATEGORIES, HERO_SLIDES as INITIAL_HERO_SLIDES } from '../data/mockProducts';
+import { PAKISTAN_CITIES, AVAILABLE_COUPONS, CityInfo, DEFAULT_BANK_SETTINGS } from '../data/pakistanLocations';
 
 interface ToastMessage {
   id: string;
@@ -31,11 +48,31 @@ interface StoreContextType {
   cartSubtotal: number;
   cartTotalCount: number;
   
-  // Coupon
+  // Coupon Engine & Management
+  coupons: Coupon[];
   appliedCoupon: Coupon | null;
   couponDiscount: number;
   applyCoupon: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
+  addCoupon: (coupon: Coupon) => boolean;
+  updateCoupon: (code: string, updated: Partial<Coupon>) => void;
+  deleteCoupon: (code: string) => void;
+  toggleCouponStatus: (code: string) => void;
+  giveCouponToUser: (code: string, recipient?: string) => void;
+
+  // Sales & Flash Deals Management
+  salesSettings: SalesCampaignSettings;
+  updateSalesSettings: (settings: Partial<SalesCampaignSettings>) => void;
+  applyStorewideDiscount: (percentage: number) => void;
+  toggleProductFlashDeal: (productId: string, discountPct?: number) => void;
+  setBulkFlashDeals: (category: string, discountPct: number) => void;
+
+  // Storefront Design & Theme Studio
+  siteDesign: SiteDesignSettings;
+  updateSiteDesign: (settings: Partial<SiteDesignSettings>) => void;
+  updateHeroSlide: (slideId: string, updated: Partial<HeroSlideConfig>) => void;
+  updatePromoBanner: (bannerId: string, updated: Partial<PromoBannerConfig>) => void;
+  resetDesignToDefault: () => void;
   
   // Wishlist
   wishlist: string[];
@@ -54,8 +91,20 @@ interface StoreContextType {
   lastPlacedOrder: Order | null;
   setLastPlacedOrder: (order: Order | null) => void;
   orders: Order[];
-  createOrder: (shipping: ShippingAddress, paymentMethod: any) => Promise<Order>;
+  createOrder: (
+    shipping: ShippingAddress, 
+    paymentMethod: any, 
+    bankTransferDetails?: Order['bankTransferDetails']
+  ) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: any) => void;
+  
+  // Bank Payment & Pakistani Banking Gateway
+  bankSettings: BankTransferSettings;
+  updateBankSettings: (settings: Partial<BankTransferSettings>) => void;
+  addBankAccount: (account: BankAccountOption) => void;
+  updateBankAccount: (accountId: string, updated: Partial<BankAccountOption>) => void;
+  deleteBankAccount: (accountId: string) => void;
+  toggleBankAccountStatus: (accountId: string) => void;
   
   // Courier & Rider Admin Controls
   courierSettings: CourierLogisticsSettings;
@@ -107,55 +156,136 @@ const STORAGE_KEYS = {
   THEME: 'aurapk_theme_v1',
   CITY: 'aurapk_city_v1',
   PRODUCTS: 'aurapk_products_v1',
-  COURIER_SETTINGS: 'aurapk_courier_settings_v1'
+  COURIER_SETTINGS: 'aurapk_courier_settings_v1',
+  COUPONS: 'aurapk_coupons_v1',
+  SALES_SETTINGS: 'aurapk_sales_settings_v1',
+  SITE_DESIGN: 'aurapk_site_design_v1',
+  BANK_SETTINGS: 'aurapk_bank_settings_v1'
+};
+
+function safeStorageGet<T>(key: string, fallback: T): T {
+  try {
+    const item = localStorage.getItem(key);
+    if (!item) return fallback;
+    return JSON.parse(item) as T;
+  } catch (e) {
+    console.warn(`Storage get failed for key "${key}":`, e);
+    return fallback;
+  }
+}
+
+function safeStorageSet(key: string, value: any): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn(`Storage set failed for key "${key}":`, e);
+  }
+}
+
+const DEFAULT_SITE_DESIGN: SiteDesignSettings = {
+  accentColor: '#059669',
+  accentColorName: 'Emerald Green',
+  announcementText: 'Free Nationwide TCS Shipping on Orders Over ₨ 2,999 — Shop 2026 Collection',
+  announcementBadge: 'PAKISTAN DROP',
+  announcementCouponCode: 'WELCOMEPK',
+  announcementCouponDiscount: '15% OFF',
+  freeShippingThreshold: 2999,
+  headerSlogan: 'PREMIUM SHOPPING DESTINATION ACROSS PAKISTAN',
+  heroSlides: INITIAL_HERO_SLIDES,
+  promoBanners: [
+    {
+      id: 'promo-1',
+      badge: 'FESTIVE LAWN PRET 2026',
+      title: 'EMBROIDERED 3-PIECE & SILK',
+      subtitle: 'Discover lightweight summer lawn with intricate zari embroidery and digital silk dupattas from Faisalabad mills.',
+      category: 'womens-fashion',
+      ctaText: 'SHOP COLLECTION',
+      discountLabel: 'EXTRA 15% OFF',
+      image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80'
+    },
+    {
+      id: 'promo-2',
+      badge: 'ROYAL AROMAS & HERITAGE',
+      title: 'PURE DEHN AL OUD & ATTAR',
+      subtitle: '24-hour long projection. Pure non-alcoholic Cambodian agarwood and Taif rose oils in velvet collector boxes.',
+      category: 'fragrances',
+      ctaText: 'EXPLORE OUD',
+      discountLabel: 'CODE: WELCOMEPK',
+      image: 'https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=800&q=80'
+    }
+  ]
 };
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    return safeStorageGet<Product[]>(STORAGE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
+  });
+
+  // Coupons state
+  const [coupons, setCoupons] = useState<Coupon[]>(() => {
+    return safeStorageGet<Coupon[]>(
+      STORAGE_KEYS.COUPONS,
+      AVAILABLE_COUPONS.map(c => ({
+        ...c,
+        isActive: true,
+        usageLimit: 1000,
+        timesUsed: Math.floor(Math.random() * 20) + 8,
+        isPublic: true
+      }))
+    );
+  });
+
+  // Sales & Flash Deals Settings
+  const [salesSettings, setSalesSettings] = useState<SalesCampaignSettings>(() => {
+    return safeStorageGet<SalesCampaignSettings>(STORAGE_KEYS.SALES_SETTINGS, {
+      campaignName: '🇵🇰 Mega Azadi & Tech Gala 2026',
+      campaignActive: true,
+      campaignBadge: 'SUPER DEALS & STEALS',
+      flashDealsTitle: 'SUPER DEALS & STEALS',
+      flashDealsSubtitle: 'Pakistan Flash Vault • Limited Quantities at Factory Direct Prices',
+      flashDealsEndsInHours: 24,
+      flashDealsTargetTimestamp: Date.now() + 24 * 60 * 60 * 1000,
+      storewideSalePercentage: 0
+    });
+  });
+
+  // Storefront Design & Theme Settings
+  const [siteDesign, setSiteDesign] = useState<SiteDesignSettings>(() => {
+    return safeStorageGet<SiteDesignSettings>(STORAGE_KEYS.SITE_DESIGN, DEFAULT_SITE_DESIGN);
   });
 
   const [courierSettings, setCourierSettings] = useState<CourierLogisticsSettings>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.COURIER_SETTINGS);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // fallback
-      }
-    }
-    return {
+    return safeStorageGet<CourierLogisticsSettings>(STORAGE_KEYS.COURIER_SETTINGS, {
       isRiderPhoneEnabled: true,
       defaultRiderName: 'Muhammad Tariq',
       defaultRiderPhone: '+92 321 4455667',
       supportContactPhone: '+92 21 111 287 275',
       privacyModeMessage: 'Direct rider mobile number is masked by store administration for driver safety. Contact Central Support for live delivery coordination.'
-    };
+    });
+  });
+
+  const [bankSettings, setBankSettings] = useState<BankTransferSettings>(() => {
+    return safeStorageGet<BankTransferSettings>(STORAGE_KEYS.BANK_SETTINGS, DEFAULT_BANK_SETTINGS);
   });
   
   const [activeView, setActiveView] = useState<ActiveView>('home');
   const [selectedCity, setSelectedCity] = useState<CityInfo>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CITY);
-    return saved ? JSON.parse(saved) : PAKISTAN_CITIES[0]; // Karachi default
+    return safeStorageGet<CityInfo>(STORAGE_KEYS.CITY, PAKISTAN_CITIES[0]);
   });
   
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.THEME);
-    return saved ? JSON.parse(saved) : false;
+    return safeStorageGet<boolean>(STORAGE_KEYS.THEME, false);
   });
 
   const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CART);
-    return saved ? JSON.parse(saved) : [];
+    return safeStorageGet<CartItem[]>(STORAGE_KEYS.CART, []);
   });
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   
   const [wishlist, setWishlist] = useState<string[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.WISHLIST);
-    return saved ? JSON.parse(saved) : ['prod-01', 'prod-02'];
+    return safeStorageGet<string[]>(STORAGE_KEYS.WISHLIST, ['prod-01', 'prod-02']);
   });
 
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
@@ -164,10 +294,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   
   const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
-    if (saved) return JSON.parse(saved);
-    // Initial sample Pakistani order
-    return [
+    return safeStorageGet<Order[]>(STORAGE_KEYS.ORDERS, [
       {
         id: 'ord-8831',
         orderNumber: 'AURA-PK-88319',
@@ -251,7 +378,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
         ]
       }
-    ];
+    ]);
   });
 
   const [filterState, setFilterState] = useState<FilterState>({
@@ -270,8 +397,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchHistory, setSearchHistory] = useState<string[]>(['Lawn suit', 'Wireless Earbuds', 'Shalwar Kameez', 'Oud Attar', 'Peshawari Chappal']);
 
   const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.USER);
-    return saved ? JSON.parse(saved) : {
+    return safeStorageGet<UserProfile | null>(STORAGE_KEYS.USER, {
       id: 'usr-901',
       name: 'Muhammad Farooq',
       phone: '+92 300 1234567',
@@ -291,7 +417,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       ],
       createdAt: '2026-01-10'
-    };
+    });
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -305,15 +431,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Sync to LocalStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(cart));
+    safeStorageSet(STORAGE_KEYS.CART, cart);
   }, [cart]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.WISHLIST, JSON.stringify(wishlist));
+    safeStorageSet(STORAGE_KEYS.WISHLIST, wishlist);
   }, [wishlist]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify(darkMode));
+    safeStorageSet(STORAGE_KEYS.THEME, darkMode);
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -322,26 +448,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [darkMode]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CITY, JSON.stringify(selectedCity));
+    safeStorageSet(STORAGE_KEYS.CITY, selectedCity);
   }, [selectedCity]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+    safeStorageSet(STORAGE_KEYS.ORDERS, orders);
   }, [orders]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+    safeStorageSet(STORAGE_KEYS.PRODUCTS, products);
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.COURIER_SETTINGS, JSON.stringify(courierSettings));
+    safeStorageSet(STORAGE_KEYS.COURIER_SETTINGS, courierSettings);
   }, [courierSettings]);
 
   useEffect(() => {
+    safeStorageSet(STORAGE_KEYS.COUPONS, coupons);
+  }, [coupons]);
+
+  useEffect(() => {
+    safeStorageSet(STORAGE_KEYS.SALES_SETTINGS, salesSettings);
+  }, [salesSettings]);
+
+  useEffect(() => {
+    safeStorageSet(STORAGE_KEYS.SITE_DESIGN, siteDesign);
+  }, [siteDesign]);
+
+  useEffect(() => {
+    safeStorageSet(STORAGE_KEYS.BANK_SETTINGS, bankSettings);
+  }, [bankSettings]);
+
+  useEffect(() => {
     if (user) {
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      safeStorageSet(STORAGE_KEYS.USER, user);
     } else {
-      localStorage.removeItem(STORAGE_KEYS.USER);
+      try {
+        localStorage.removeItem(STORAGE_KEYS.USER);
+      } catch (e) {
+        console.warn('Failed removing user storage:', e);
+      }
     }
   }, [user]);
 
@@ -427,9 +573,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const applyCoupon = (code: string) => {
     const cleanCode = code.trim().toUpperCase();
-    const coupon = AVAILABLE_COUPONS.find(c => c.code === cleanCode);
+    const coupon = coupons.find(c => c.code.toUpperCase() === cleanCode);
     if (!coupon) {
-      return { success: false, message: 'Invalid coupon code. Try WELCOMEPK or AZADI500' };
+      return { success: false, message: 'Invalid coupon code. Please check code spelling.' };
+    }
+    if (coupon.isActive === false) {
+      return { success: false, message: `Coupon ${coupon.code} is currently deactivated by store admin.` };
+    }
+    if (coupon.expiryDate) {
+      const exp = new Date(coupon.expiryDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (exp < today) {
+        return { success: false, message: `Coupon ${coupon.code} expired on ${coupon.expiryDate}.` };
+      }
     }
     if (cartSubtotal < coupon.minSpend) {
       return {
@@ -437,6 +594,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         message: `Min spend for ${coupon.code} is ₨ ${coupon.minSpend.toLocaleString()}`
       };
     }
+    
+    // Update usage count
+    setCoupons(prev =>
+      prev.map(c => (c.code.toUpperCase() === cleanCode ? { ...c, timesUsed: (c.timesUsed || 0) + 1 } : c))
+    );
+
     setAppliedCoupon(coupon);
     addToast('success', 'Coupon Applied!', `₨ ${coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : coupon.discountValue} discount applied!`);
     return { success: true, message: `Discount coupon ${coupon.code} applied successfully!` };
@@ -445,6 +608,190 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const removeCoupon = () => {
     setAppliedCoupon(null);
     addToast('info', 'Coupon Removed', 'Discount coupon removed.');
+  };
+
+  // Coupon Admin Methods
+  const addCoupon = (newCoupon: Coupon): boolean => {
+    const cleanCode = newCoupon.code.trim().toUpperCase();
+    if (!cleanCode) {
+      addToast('error', 'Invalid Coupon', 'Coupon code cannot be empty.');
+      return false;
+    }
+    const exists = coupons.some(c => c.code.toUpperCase() === cleanCode);
+    if (exists) {
+      addToast('error', 'Duplicate Code', `Coupon code ${cleanCode} already exists.`);
+      return false;
+    }
+    const formatted: Coupon = {
+      ...newCoupon,
+      code: cleanCode,
+      isActive: newCoupon.isActive !== undefined ? newCoupon.isActive : true,
+      timesUsed: 0,
+      usageLimit: newCoupon.usageLimit || 500,
+      isPublic: newCoupon.isPublic !== undefined ? newCoupon.isPublic : true
+    };
+    setCoupons(prev => [formatted, ...prev]);
+    addToast('success', 'Coupon Created', `Voucher ${cleanCode} has been published successfully.`);
+    return true;
+  };
+
+  const updateCoupon = (code: string, updated: Partial<Coupon>) => {
+    const cleanCode = code.trim().toUpperCase();
+    setCoupons(prev =>
+      prev.map(c => {
+        if (c.code.toUpperCase() === cleanCode) {
+          const next = { ...c, ...updated };
+          if (updated.code) {
+            next.code = updated.code.trim().toUpperCase();
+          }
+          return next;
+        }
+        return c;
+      })
+    );
+    addToast('success', 'Coupon Updated', `Changes to ${cleanCode} saved.`);
+  };
+
+  const deleteCoupon = (code: string) => {
+    const cleanCode = code.trim().toUpperCase();
+    setCoupons(prev => prev.filter(c => c.code.toUpperCase() !== cleanCode));
+    if (appliedCoupon && appliedCoupon.code.toUpperCase() === cleanCode) {
+      setAppliedCoupon(null);
+    }
+    addToast('info', 'Coupon Deleted', `Coupon ${cleanCode} has been permanently deleted.`);
+  };
+
+  const toggleCouponStatus = (code: string) => {
+    const cleanCode = code.trim().toUpperCase();
+    setCoupons(prev =>
+      prev.map(c => {
+        if (c.code.toUpperCase() === cleanCode) {
+          const nextActive = !c.isActive;
+          addToast(
+            nextActive ? 'success' : 'info',
+            nextActive ? 'Coupon Activated' : 'Coupon Paused',
+            `Coupon ${cleanCode} is now ${nextActive ? 'ACTIVE and redeemable' : 'PAUSED'}.`
+          );
+          return { ...c, isActive: nextActive };
+        }
+        return c;
+      })
+    );
+  };
+
+  const giveCouponToUser = (code: string, recipient?: string) => {
+    const cleanCode = code.trim().toUpperCase();
+    const coupon = coupons.find(c => c.code.toUpperCase() === cleanCode);
+    if (!coupon) return;
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(cleanCode).catch(() => {});
+    }
+
+    const discountText = coupon.discountType === 'percentage' ? `${coupon.discountValue}% OFF` : `₨ ${coupon.discountValue} OFF`;
+    addToast(
+      'success',
+      'Coupon Voucher Issued!',
+      `Copied code ${cleanCode} (${discountText}). Share with customer ${recipient ? `(${recipient})` : 'or WhatsApp'}!`
+    );
+  };
+
+  // Sales & Flash Deals Admin Methods
+  const updateSalesSettings = (settings: Partial<SalesCampaignSettings>) => {
+    setSalesSettings(prev => ({ ...prev, ...settings }));
+    addToast('success', 'Sales Settings Saved', 'Live promotional campaign and countdown timers updated.');
+  };
+
+  const applyStorewideDiscount = (percentage: number) => {
+    if (percentage <= 0) {
+      // Reset prices to original
+      setProducts(INITIAL_PRODUCTS);
+      setSalesSettings(prev => ({ ...prev, storewideSalePercentage: 0 }));
+      addToast('info', 'Sale Reset', 'All product discounts reset to default catalog pricing.');
+      return;
+    }
+
+    setProducts(prev =>
+      prev.map(p => {
+        const discountPercentage = Math.max(p.discountPercentage, percentage);
+        const price = Math.round(p.originalPrice * (1 - discountPercentage / 100));
+        return {
+          ...p,
+          discountPercentage,
+          price
+        };
+      })
+    );
+    setSalesSettings(prev => ({ ...prev, storewideSalePercentage: percentage }));
+    addToast('success', 'Storewide Sale Active', `Applied ${percentage}% discount across all inventory!`);
+  };
+
+  const toggleProductFlashDeal = (productId: string, discountPct?: number) => {
+    setProducts(prev =>
+      prev.map(p => {
+        if (p.id === productId) {
+          const isFlash = !p.isFlashDeal;
+          const discountPercentage = discountPct !== undefined ? discountPct : (isFlash ? Math.max(p.discountPercentage, 35) : p.discountPercentage);
+          const price = Math.round(p.originalPrice * (1 - discountPercentage / 100));
+          return {
+            ...p,
+            isFlashDeal: isFlash,
+            discountPercentage,
+            price,
+            flashDealClaimed: isFlash ? Math.floor(Math.random() * 40) + 50 : undefined
+          };
+        }
+        return p;
+      })
+    );
+    addToast('success', 'Flash Deal Updated', 'Product flash status toggled.');
+  };
+
+  const setBulkFlashDeals = (category: string, discountPct: number) => {
+    setProducts(prev =>
+      prev.map(p => {
+        if (category === 'all' || p.category === category) {
+          const discountPercentage = Math.max(discountPct, p.discountPercentage);
+          const price = Math.round(p.originalPrice * (1 - discountPercentage / 100));
+          return {
+            ...p,
+            isFlashDeal: true,
+            discountPercentage,
+            price,
+            flashDealClaimed: Math.floor(Math.random() * 35) + 60
+          };
+        }
+        return p;
+      })
+    );
+    addToast('success', 'Flash Deals Applied', `Bulk ${discountPct}% Flash Deals activated.`);
+  };
+
+  // Storefront Design & Theme Methods
+  const updateSiteDesign = (settings: Partial<SiteDesignSettings>) => {
+    setSiteDesign(prev => ({ ...prev, ...settings }));
+    addToast('success', 'Theme & Design Saved', 'Storefront styling, colors, and banner assets updated in real-time.');
+  };
+
+  const updateHeroSlide = (slideId: string, updated: Partial<HeroSlideConfig>) => {
+    setSiteDesign(prev => ({
+      ...prev,
+      heroSlides: prev.heroSlides.map(s => (s.id === slideId ? { ...s, ...updated } : s))
+    }));
+    addToast('success', 'Hero Slide Saved', 'Hero banner slide updated.');
+  };
+
+  const updatePromoBanner = (bannerId: string, updated: Partial<PromoBannerConfig>) => {
+    setSiteDesign(prev => ({
+      ...prev,
+      promoBanners: prev.promoBanners.map(b => (b.id === bannerId ? { ...b, ...updated } : b))
+    }));
+    addToast('success', 'Promo Banner Saved', 'Promotional card updated.');
+  };
+
+  const resetDesignToDefault = () => {
+    setSiteDesign(DEFAULT_SITE_DESIGN);
+    addToast('info', 'Design Reset', 'Store design reset to official AuraPK defaults.');
   };
 
   const toggleWishlist = (productId: string) => {
@@ -642,7 +989,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addToast('success', 'Profile Updated', 'Your profile details were saved.');
   };
 
-  const createOrder = async (shipping: ShippingAddress, paymentMethod: any): Promise<Order> => {
+  const createOrder = async (
+    shipping: ShippingAddress, 
+    paymentMethod: any, 
+    bankTransferDetails?: Order['bankTransferDetails']
+  ): Promise<Order> => {
     const orderNum = 'AURA-PK-' + Math.floor(10000 + Math.random() * 90000);
     const trackingNum = 'TCS-PK-' + Math.floor(1000000 + Math.random() * 9000000);
     
@@ -670,14 +1021,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       shippingFee,
       total: finalTotal,
       paymentMethod,
-      paymentStatus: paymentMethod === 'cod' ? 'cod_pending' : 'paid',
+      paymentStatus: paymentMethod === 'cod' ? 'cod_pending' : paymentMethod === 'bank_transfer' ? 'pending' : 'paid',
+      bankTransferDetails,
       status: 'confirmed',
       estimatedDeliveryDate: estDate.toISOString().split('T')[0],
       trackingTimeline: [
         {
           status: 'confirmed',
           title: 'Order Placed & Confirmed',
-          description: `Order received and assigned to Fulfillment Hub. Payment method: ${paymentMethod.toUpperCase()}.`,
+          description: paymentMethod === 'bank_transfer' 
+            ? `Order received with Bank Transfer (${bankTransferDetails?.bankName || 'Direct Bank Deposit'}). Verification in progress.`
+            : `Order received and assigned to Fulfillment Hub. Payment method: ${paymentMethod.toUpperCase()}.`,
           location: 'Lahore Central Hub',
           timestamp: 'Just now',
           completed: true
@@ -799,6 +1153,70 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addToast('success', 'Rider Assigned', `Updated courier rider details for consignment.`);
   };
 
+  // Bank Payment & Pakistani Banking Gateway Methods
+  const updateBankSettings = (settings: Partial<BankTransferSettings>) => {
+    setBankSettings(prev => {
+      const updated = { ...prev, ...settings };
+      localStorage.setItem(STORAGE_KEYS.BANK_SETTINGS, JSON.stringify(updated));
+      return updated;
+    });
+    addToast('success', 'Bank Settings Saved', 'Official Pakistani bank accounts & Raast configuration updated.');
+  };
+
+  const addBankAccount = (account: BankAccountOption) => {
+    setBankSettings(prev => {
+      const updated = {
+        ...prev,
+        accounts: [...prev.accounts, account]
+      };
+      localStorage.setItem(STORAGE_KEYS.BANK_SETTINGS, JSON.stringify(updated));
+      return updated;
+    });
+    addToast('success', 'Bank Account Added', `${account.bankName} added to payment options.`);
+  };
+
+  const updateBankAccount = (accountId: string, updated: Partial<BankAccountOption>) => {
+    setBankSettings(prev => {
+      const updatedAccounts = prev.accounts.map(acc => 
+        acc.id === accountId ? { ...acc, ...updated } : acc
+      );
+      const nextSettings = { ...prev, accounts: updatedAccounts };
+      localStorage.setItem(STORAGE_KEYS.BANK_SETTINGS, JSON.stringify(nextSettings));
+      return nextSettings;
+    });
+    addToast('success', 'Account Updated', 'Bank details saved successfully.');
+  };
+
+  const deleteBankAccount = (accountId: string) => {
+    setBankSettings(prev => {
+      const filtered = prev.accounts.filter(acc => acc.id !== accountId);
+      const nextSettings = { ...prev, accounts: filtered };
+      localStorage.setItem(STORAGE_KEYS.BANK_SETTINGS, JSON.stringify(nextSettings));
+      return nextSettings;
+    });
+    addToast('info', 'Account Removed', 'Bank account removed from payment methods.');
+  };
+
+  const toggleBankAccountStatus = (accountId: string) => {
+    setBankSettings(prev => {
+      const updatedAccounts = prev.accounts.map(acc => {
+        if (acc.id === accountId) {
+          const nextActive = !acc.isActive;
+          addToast(
+            nextActive ? 'success' : 'info', 
+            nextActive ? 'Bank Activated' : 'Bank Deactivated', 
+            `${acc.bankName} is now ${nextActive ? 'active in checkout' : 'hidden from checkout'}.`
+          );
+          return { ...acc, isActive: nextActive };
+        }
+        return acc;
+      });
+      const nextSettings = { ...prev, accounts: updatedAccounts };
+      localStorage.setItem(STORAGE_KEYS.BANK_SETTINGS, JSON.stringify(nextSettings));
+      return nextSettings;
+    });
+  };
+
   // Product Admin
   const addProduct = (newProd: Product) => {
     setProducts(prev => [newProd, ...prev]);
@@ -835,10 +1253,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         clearCart,
         cartSubtotal,
         cartTotalCount,
+        coupons,
         appliedCoupon,
         couponDiscount,
         applyCoupon,
         removeCoupon,
+        addCoupon,
+        updateCoupon,
+        deleteCoupon,
+        toggleCouponStatus,
+        giveCouponToUser,
+        salesSettings,
+        updateSalesSettings,
+        applyStorewideDiscount,
+        toggleProductFlashDeal,
+        setBulkFlashDeals,
+        siteDesign,
+        updateSiteDesign,
+        updateHeroSlide,
+        updatePromoBanner,
+        resetDesignToDefault,
+        bankSettings,
+        updateBankSettings,
+        addBankAccount,
+        updateBankAccount,
+        deleteBankAccount,
+        toggleBankAccountStatus,
         wishlist,
         toggleWishlist,
         isInWishlist,

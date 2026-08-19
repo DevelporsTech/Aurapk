@@ -20,9 +20,18 @@ import {
   Headphones,
   Edit3,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Ticket,
+  Flame,
+  Palette,
+  Building2,
+  Sparkles
 } from 'lucide-react';
 import { formatPKR } from '../../data/pakistanLocations';
+import { CouponsManager } from './CouponsManager';
+import { SalesCampaignManager } from './SalesCampaignManager';
+import { DesignStudioManager } from './DesignStudioManager';
+import { BankPaymentManager } from './BankPaymentManager';
 import { Product, Order } from '../../types';
 
 export const AdminDashboard: React.FC = () => {
@@ -38,10 +47,14 @@ export const AdminDashboard: React.FC = () => {
     updateCourierSettings,
     toggleGlobalRiderPhone,
     toggleOrderRiderPhone,
-    updateOrderRiderDetails
+    updateOrderRiderDetails,
+    coupons,
+    salesSettings,
+    siteDesign,
+    bankSettings
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'courier-rider'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'courier-rider' | 'coupons' | 'sales' | 'design' | 'bank-payments' | 'inventory'>('overview');
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [showAdminPass, setShowAdminPass] = useState(false);
   const [adminPassError, setAdminPassError] = useState('');
@@ -61,7 +74,7 @@ export const AdminDashboard: React.FC = () => {
   // Calculate live stats
   const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
   const pendingOrders = orders.filter(o => o.status === 'pending' || o.status === 'processing');
-  const outForDelivery = orders.filter(o => o.status === 'out-for-delivery' || o.status === 'out_for_delivery' || o.status === 'shipped');
+  const outForDelivery = orders.filter(o => o.status === 'out_for_delivery' || o.status === 'shipped');
 
   // New product state
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -319,7 +332,7 @@ export const AdminDashboard: React.FC = () => {
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          ORDERS MANAGEMENT ({orders.length})
+          ORDERS ({orders.length})
         </button>
 
         <button
@@ -331,13 +344,67 @@ export const AdminDashboard: React.FC = () => {
           }`}
         >
           <Truck className="w-3.5 h-3.5" />
-          <span>COURIER & RIDER DISPATCH</span>
+          <span>COURIER & RIDER</span>
           <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${
             courierSettings.isRiderPhoneEnabled 
               ? 'bg-[#059669]/20 text-[#059669] border border-[#059669]/30' 
               : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
           }`}>
-            {courierSettings.isRiderPhoneEnabled ? 'PHONE ACTIVE' : 'PHONE DISABLED'}
+            {courierSettings.isRiderPhoneEnabled ? 'PHONE ON' : 'PHONE OFF'}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('coupons')}
+          className={`pb-3 transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'coupons'
+              ? 'border-b-2 border-[#059669] text-[#059669]'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Ticket className="w-3.5 h-3.5" />
+          <span>COUPONS ({coupons.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('sales')}
+          className={`pb-3 transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'sales'
+              ? 'border-b-2 border-[#059669] text-[#059669]'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Flame className="w-3.5 h-3.5" />
+          <span>SALES & FLASH DEALS</span>
+          {salesSettings.campaignActive && (
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('design')}
+          className={`pb-3 transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'design'
+              ? 'border-b-2 border-[#059669] text-[#059669]'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Palette className="w-3.5 h-3.5" />
+          <span>STORE DESIGN</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('bank-payments')}
+          className={`pb-3 transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'bank-payments'
+              ? 'border-b-2 border-teal-500 text-teal-400'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Building2 className="w-3.5 h-3.5" />
+          <span>BANKS & RAAST</span>
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black bg-teal-500/20 text-teal-300 border border-teal-500/30">
+            {bankSettings.accounts.filter(a => a.isActive).length}
           </span>
         </button>
 
@@ -349,7 +416,7 @@ export const AdminDashboard: React.FC = () => {
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          LIVE INVENTORY ({products.length})
+          INVENTORY ({products.length})
         </button>
       </div>
 
@@ -399,7 +466,7 @@ export const AdminDashboard: React.FC = () => {
                         <span className={`px-2.5 py-1 rounded-full font-black text-[9px] uppercase tracking-wider ${
                           order.status === 'delivered'
                             ? 'bg-[#059669]/20 text-[#059669] border border-[#059669]/40'
-                            : order.status === 'out-for-delivery' || order.status === 'out_for_delivery'
+                            : order.status === 'out_for_delivery'
                             ? 'bg-cyan-950/60 text-cyan-300 border border-cyan-500/30'
                             : 'bg-amber-950/60 text-amber-300 border border-amber-500/30'
                         }`}>
@@ -705,6 +772,18 @@ export const AdminDashboard: React.FC = () => {
 
         </div>
       )}
+
+      {/* Tab: Coupons */}
+      {activeTab === 'coupons' && <CouponsManager />}
+
+      {/* Tab: Sales Campaigns */}
+      {activeTab === 'sales' && <SalesCampaignManager />}
+
+      {/* Tab: Design Studio */}
+      {activeTab === 'design' && <DesignStudioManager />}
+
+      {/* Tab: Pakistani Bank Accounts & Raast */}
+      {activeTab === 'bank-payments' && <BankPaymentManager />}
 
       {/* Tab: Inventory */}
       {activeTab === 'inventory' && (

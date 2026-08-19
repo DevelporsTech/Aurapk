@@ -124,9 +124,41 @@ export interface Order {
   total: number;
   paymentMethod: PaymentMethod;
   paymentStatus: 'pending' | 'paid' | 'cod_pending' | 'failed';
+  bankTransferDetails?: {
+    bankId?: string;
+    bankName?: string;
+    accountTitle?: string;
+    iban?: string;
+    transactionId?: string;
+    senderAccountName?: string;
+    senderBankName?: string;
+    paymentProofUrl?: string;
+  };
   status: OrderStatus;
   estimatedDeliveryDate: string;
   trackingTimeline: OrderTrackingEvent[];
+}
+
+export interface BankAccountOption {
+  id: string;
+  bankName: string;
+  shortName: string;
+  accountTitle: string;
+  accountNumber: string;
+  iban: string;
+  branchCode: string;
+  branchName: string;
+  raastId?: string;
+  isActive: boolean;
+  notes?: string;
+  isPopular?: boolean;
+}
+
+export interface BankTransferSettings {
+  enabled: boolean;
+  accounts: BankAccountOption[];
+  instructions: string;
+  whatsappVerificationNumber: string;
 }
 
 export interface CourierLogisticsSettings {
@@ -144,6 +176,56 @@ export interface Coupon {
   minSpend: number;
   description: string;
   expiryDate: string;
+  isActive?: boolean;
+  usageLimit?: number;
+  timesUsed?: number;
+  isPublic?: boolean;
+}
+
+export interface HeroSlideConfig {
+  id: string;
+  badge: string;
+  title: string;
+  subtitle: string;
+  ctaText: string;
+  ctaCategory: string;
+  image: string;
+  highlightCode: string;
+}
+
+export interface PromoBannerConfig {
+  id: string;
+  badge: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  ctaText: string;
+  discountLabel: string;
+  image: string;
+}
+
+export interface SiteDesignSettings {
+  accentColor: string;
+  accentColorName: string;
+  announcementText: string;
+  announcementBadge: string;
+  announcementCouponCode: string;
+  announcementCouponDiscount: string;
+  freeShippingThreshold: number;
+  heroSlides: HeroSlideConfig[];
+  promoBanners: PromoBannerConfig[];
+  headerSlogan: string;
+}
+
+export interface SalesCampaignSettings {
+  campaignName: string;
+  campaignActive: boolean;
+  campaignBadge: string;
+  flashDealsTitle: string;
+  flashDealsSubtitle: string;
+  flashDealsEndsInHours: number;
+  flashDealsTargetTimestamp: number;
+  storewideSalePercentage: number;
 }
 
 export interface UserProfile {

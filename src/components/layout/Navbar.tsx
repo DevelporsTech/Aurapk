@@ -93,17 +93,23 @@ export const Navbar: React.FC = () => {
               {isMobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
             </button>
 
-            {/* Logo with Bold Typography */}
+            {/* Logo with Bold Typography & App Icon */}
             <button
               id="brand-logo-btn"
               onClick={() => {
                 setActiveView('home');
                 setFilterState(prev => ({ ...prev, category: 'all', searchQuery: '' }));
               }}
-              className="flex items-center gap-1.5 sm:gap-2 text-left group cursor-pointer"
+              className="flex items-center gap-2 sm:gap-2.5 text-left group cursor-pointer"
             >
+              <img 
+                src="/app-logo.jpg" 
+                alt="AuraPK App Logo" 
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl object-cover shadow-sm ring-1 ring-[#059669]/40 group-hover:scale-105 transition-transform" 
+                referrerPolicy="no-referrer"
+              />
               <div className="flex items-baseline">
-                <span className="font-display font-black text-xl sm:text-2xl md:text-3xl tracking-tighter text-white uppercase group-hover:text-slate-200 transition-colors">
+                <span className="font-display font-black text-lg sm:text-2xl md:text-3xl tracking-tighter text-white uppercase group-hover:text-slate-200 transition-colors">
                   AURA<span className="text-[#059669]">.</span>PK
                 </span>
                 <span className="ml-1.5 hidden md:inline-block text-[8px] font-black uppercase tracking-[0.25em] text-[#059669] border border-[#059669]/40 px-1.5 py-0.5 rounded">
@@ -234,7 +240,7 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Right: Actions (Favourite, Bag/Cart, Me/User, with Desktop Track & Admin) */}
-          <div className="flex items-center gap-1 sm:gap-2 md:gap-3 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 md:gap-3 shrink-0 ml-auto sm:ml-0">
             
             {/* Order Tracking Button (Desktop/Tablet) */}
             <button
@@ -271,13 +277,13 @@ export const Navbar: React.FC = () => {
               onClick={() => {
                 setActiveView('account');
               }}
-              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-slate-300 hover:text-rose-400 hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0"
+              className="relative w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-slate-300 hover:text-rose-400 hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0"
               title="View Favourites & Wishlist"
               aria-label="View Favourites"
             >
-              <Heart className="w-[18px] h-[18px]" />
+              <Heart className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               {wishlist.length > 0 && (
-                <span className="absolute top-0 right-0 min-w-[15px] h-[15px] px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center pointer-events-none shadow-xs">
+                <span className="absolute top-0 right-0 min-w-[14px] h-[14px] px-0.5 bg-rose-500 text-white text-[8px] sm:text-[9px] font-black rounded-full flex items-center justify-center pointer-events-none shadow-xs">
                   {wishlist.length}
                 </span>
               )}
@@ -287,14 +293,14 @@ export const Navbar: React.FC = () => {
             <button
               id="nav-cart-btn"
               onClick={() => setIsCartOpen(true)}
-              className="relative w-9 h-9 sm:w-auto sm:px-3.5 sm:py-2 rounded-full bg-white text-black hover:bg-[#059669] hover:text-white active:scale-95 transition-all flex items-center justify-center gap-2 font-black text-xs uppercase tracking-wider shadow-md cursor-pointer shrink-0"
+              className="relative w-8 h-8 sm:w-auto sm:px-3 sm:py-1.5 md:px-3.5 md:py-2 rounded-full bg-white text-black hover:bg-[#059669] hover:text-white active:scale-95 transition-all flex items-center justify-center gap-1.5 md:gap-2 font-black text-xs uppercase tracking-wider shadow-md cursor-pointer shrink-0"
               aria-label="Open Shopping Bag"
               title="Open Shopping Bag"
             >
               <div className="relative flex items-center justify-center">
-                <ShoppingBag className="w-[18px] h-[18px]" />
+                <ShoppingBag className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                 {cartTotalCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-[#059669] text-black text-[9px] font-black min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center ring-2 ring-[#080808] sm:hidden">
+                  <span className="absolute -top-1 -right-1 bg-[#059669] text-black text-[8px] font-black min-w-[14px] h-[14px] px-0.5 rounded-full flex items-center justify-center ring-1 ring-[#080808] sm:hidden">
                     {cartTotalCount}
                   </span>
                 )}
@@ -304,7 +310,7 @@ export const Navbar: React.FC = () => {
                   {cartTotalCount}
                 </span>
               )}
-              <span className="text-[11px] font-black hidden sm:inline whitespace-nowrap">
+              <span className="text-[11px] font-black hidden md:inline whitespace-nowrap">
                 {formatPKR(cartSubtotal)}
               </span>
             </button>
@@ -314,28 +320,28 @@ export const Navbar: React.FC = () => {
               <button
                 id="nav-user-btn"
                 onClick={() => setActiveView('account')}
-                className="w-9 h-9 sm:w-auto sm:px-3 sm:py-1.5 rounded-full border border-white/20 text-white hover:border-[#059669] hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                className="w-8 h-8 sm:w-auto sm:px-2.5 sm:py-1 rounded-full border border-white/20 text-white hover:border-[#059669] hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 title={`Account: ${user.name}`}
                 aria-label="User Account"
               >
-                <div className="w-6 h-6 sm:w-6 sm:h-6 rounded-full bg-[#059669] text-black flex items-center justify-center font-black text-[11px] shrink-0">
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#059669] text-black flex items-center justify-center font-black text-[10px] sm:text-[11px] shrink-0">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-[11px] font-bold uppercase tracking-wider hidden md:inline truncate max-w-[80px]">
+                <span className="text-[11px] font-bold uppercase tracking-wider hidden lg:inline truncate max-w-[70px]">
                   {user.name.split(' ')[0]}
                 </span>
               </button>
             ) : (
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <button
                   id="nav-signin-btn"
                   onClick={() => openAuthModal('login')}
-                  className="w-9 h-9 sm:w-auto sm:px-3.5 sm:py-2 rounded-full border border-white/20 text-white hover:border-[#059669] hover:text-[#059669] hover:bg-white/5 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                  className="w-8 h-8 sm:w-auto sm:px-3 sm:py-1.5 rounded-full border border-white/20 text-white hover:border-[#059669] hover:text-[#059669] hover:bg-white/5 active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer shrink-0"
                   title="Sign In / User Profile"
                   aria-label="Sign In"
                 >
-                  <User className="w-[18px] h-[18px] text-[#059669]" />
-                  <span className="hidden sm:inline text-[11px] font-black uppercase tracking-wider">SIGN IN</span>
+                  <User className="w-4 h-4 sm:w-[18px] sm:h-[18px] text-[#059669]" />
+                  <span className="hidden sm:inline text-[11px] font-black uppercase tracking-wider">ME</span>
                 </button>
                 <button
                   id="nav-register-btn"

@@ -4,8 +4,13 @@ import { PAKISTAN_CITIES } from '../../data/pakistanLocations';
 import { MapPin, Phone, ChevronDown, Sparkles } from 'lucide-react';
 
 export const AnnouncementBar: React.FC = () => {
-  const { selectedCity, setSelectedCity } = useStore();
+  const { selectedCity, setSelectedCity, siteDesign } = useStore();
   const [isCityDropdownOpen, setIsCityDropdownOpen] = React.useState(false);
+
+  const announcementBadge = siteDesign?.announcementBadge || 'PAKISTAN DROP';
+  const announcementText = siteDesign?.announcementText || 'Free Nationwide TCS Shipping on Orders Over ₨ 2,999 — Shop 2026 Collection';
+  const couponCode = siteDesign?.announcementCouponCode || 'WELCOMEPK';
+  const couponDiscount = siteDesign?.announcementCouponDiscount || '15% OFF';
 
   return (
     <div id="announcement-bar" className="bg-[#059669] text-black text-[11px] font-black uppercase tracking-[0.18em] py-2 px-3 sm:px-6 border-b border-black/20 relative z-40">
@@ -14,19 +19,21 @@ export const AnnouncementBar: React.FC = () => {
         {/* Left: Shipping & Promo Highlight */}
         <div className="flex items-center gap-2 text-center sm:text-left">
           <span className="bg-black text-white text-[9px] font-black px-2 py-0.5 rounded tracking-widest uppercase">
-            PAKISTAN DROP
+            {announcementBadge}
           </span>
           <span className="text-black/90">
-            Free Nationwide TCS Shipping on Orders Over <strong>₨ 2,999</strong> — Shop 2026 Collection
+            {announcementText}
           </span>
         </div>
 
         {/* Center: Live Voucher Badge */}
-        <div className="hidden lg:flex items-center gap-2 bg-black/15 px-3 py-0.5 rounded text-[11px]">
-          <span className="text-black font-extrabold">CODE:</span>
-          <span className="font-mono font-black text-black underline tracking-widest">WELCOMEPK</span>
-          <span className="text-black/80 font-bold">• 15% OFF</span>
-        </div>
+        {couponCode && (
+          <div className="hidden lg:flex items-center gap-2 bg-black/15 px-3 py-0.5 rounded text-[11px]">
+            <span className="text-black font-extrabold">CODE:</span>
+            <span className="font-mono font-black text-black underline tracking-widest">{couponCode}</span>
+            {couponDiscount && <span className="text-black/80 font-bold">• {couponDiscount}</span>}
+          </div>
+        )}
 
         {/* Right: City Selector & WhatsApp Support */}
         <div className="flex items-center gap-4">

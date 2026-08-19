@@ -120,9 +120,9 @@ export const UserProfileView: React.FC = () => {
       {activeTab === 'orders' && (
         <div className="space-y-4">
           {orders.length > 0 ? (
-            orders.map(order => (
+            orders.map((order, oIdx) => (
               <div
-                key={order.id}
+                key={order.id || `user-order-${order.orderNumber || oIdx}`}
                 className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-5 sm:p-6 shadow-md space-y-4"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3 text-xs">
@@ -143,8 +143,11 @@ export const UserProfileView: React.FC = () => {
                 </div>
 
                 <div className="divide-y divide-white/10">
-                  {order.items.map(item => (
-                    <div key={item.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs">
+                  {order.items.map((item, itemIdx) => (
+                    <div 
+                      key={item.id ? `${order.id || oIdx}-${item.id}-${itemIdx}` : `${order.id || oIdx}-item-${itemIdx}`} 
+                      className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs"
+                    >
                       <div className="flex items-center gap-3">
                         <img src={item.image} alt={item.title} className="w-12 h-12 rounded-xl object-cover bg-slate-800" />
                         <div>
@@ -161,7 +164,7 @@ export const UserProfileView: React.FC = () => {
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-white/10 text-xs">
                   <div>
-                    <span className="text-slate-400 uppercase font-bold text-[10px] tracking-wider">Total ({order.paymentMethod.toUpperCase()}): </span>
+                    <span className="text-slate-400 uppercase font-bold text-[10px] tracking-wider">Total ({order.paymentMethod?.toUpperCase() || 'COD'}): </span>
                     <span className="font-mono font-black text-[#059669] text-sm">
                       {formatPKR(order.total)}
                     </span>
@@ -192,8 +195,8 @@ export const UserProfileView: React.FC = () => {
         <div>
           {wishlistProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {wishlistProducts.map(p => (
-                <ProductCard key={p.id} product={p} />
+              {wishlistProducts.map((p, pIdx) => (
+                <ProductCard key={p.id || `wishlist-prod-${pIdx}`} product={p} />
               ))}
             </div>
           ) : (
@@ -209,22 +212,24 @@ export const UserProfileView: React.FC = () => {
       {/* Tab 3: Saved Addresses */}
       {activeTab === 'addresses' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {user.addresses.map(addr => (
+          {user.addresses.map((addr, addrIdx) => (
             <div
-              key={addr.id}
+              key={`address-${addrIdx}-${addr.city || 'pk'}`}
               className="bg-[#0e0e0e] border border-white/10 rounded-3xl p-5 shadow-xs space-y-2 text-xs"
             >
               <div className="flex items-center justify-between">
-                <span className="font-display font-black text-sm text-white uppercase">{addr.title}</span>
-                {addr.isDefault && (
+                <span className="font-display font-black text-sm text-white uppercase">
+                  {addr.area ? `${addr.area}, ${addr.city}` : `${addr.city} Address`}
+                </span>
+                {addrIdx === 0 && (
                   <span className="bg-[#059669]/20 text-[#059669] border border-[#059669]/30 font-black px-2 py-0.5 rounded text-[10px] uppercase tracking-widest">
-                    DEFAULT
+                    PRIMARY
                   </span>
                 )}
               </div>
               <p className="font-semibold text-slate-300">{addr.fullName} ({addr.phone})</p>
               <p className="text-slate-400 leading-relaxed">
-                {addr.address}, {addr.area}, {addr.city} ({addr.province})
+                {addr.address}, {addr.area}, {addr.city} ({addr.province}) {addr.postalCode ? `- ${addr.postalCode}` : ''}
               </p>
             </div>
           ))}

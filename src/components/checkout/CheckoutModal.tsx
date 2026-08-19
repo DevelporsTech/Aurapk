@@ -4,7 +4,16 @@ import {
   X, 
   CreditCard, 
   MapPin, 
-  Lock
+  Lock,
+  Building2,
+  Copy,
+  Check,
+  Smartphone,
+  ShieldCheck,
+  Upload,
+  MessageCircle,
+  QrCode,
+  Info
 } from 'lucide-react';
 import { 
   PAKISTAN_CITIES, 
@@ -25,7 +34,9 @@ export const CheckoutModal: React.FC = () => {
     selectedCity, 
     setSelectedCity,
     createOrder,
-    user
+    user,
+    bankSettings,
+    addToast
   } = useStore();
 
   const [formData, setFormData] = useState<ShippingAddress>({
@@ -43,10 +54,29 @@ export const CheckoutModal: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [jazzcashNumber, setJazzcashNumber] = useState('');
   const [easypaisaNumber, setEasypaisaNumber] = useState('');
+  
+  // Bank Transfer states
+  const activeBankAccounts = bankSettings.accounts.filter(acc => acc.isActive);
+  const [selectedBankId, setSelectedBankId] = useState<string>(activeBankAccounts[0]?.id || 'meezan');
+  const [bankTransactionId, setBankTransactionId] = useState('');
+  const [senderAccountName, setSenderAccountName] = useState('');
+  const [senderBankName, setSenderBankName] = useState('');
+  const [proofFileName, setProofFileName] = useState('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   if (!isCheckoutOpen) return null;
+
+  const currentSelectedBank = activeBankAccounts.find(b => b.id === selectedBankId) || activeBankAccounts[0];
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(label);
+    addToast('success', 'Copied to Clipboard', `${label}: ${text}`);
+    setTimeout(() => setCopiedField(null), 2500);
+  };
 
   const freeShippingThreshold = 2999;
   const shippingFee = cartSubtotal >= freeShippingThreshold ? 0 : selectedCity.deliveryFee;
@@ -62,6 +92,13 @@ export const CheckoutModal: React.FC = () => {
         province: matchedCity.province,
         postalCode: matchedCity.postalCode
       }));
+    }
+  };
+
+  const handleProofFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setProofFileName(e.target.files[0].name);
+      addToast('info', 'Receipt Attached', `${e.target.files[0].name} uploaded.`);
     }
   };
 
@@ -92,7 +129,19 @@ export const CheckoutModal: React.FC = () => {
     try {
       // Simulate order placement
       await new Promise(resolve => setTimeout(resolve, 1200));
-      await createOrder(formData, paymentMethod);
+
+      const bankDetails = paymentMethod === 'bank_transfer' ? {
+        bankId: currentSelectedBank?.id,
+        bankName: currentSelectedBank?.bankName,
+        accountTitle: currentSelectedBank?.accountTitle,
+        iban: currentSelectedBank?.iban,
+        transactionId: bankTransactionId.trim() || undefined,
+        senderAccountName: senderAccountName.trim() || undefined,
+        senderBankName: senderBankName.trim() || undefined,
+        paymentProofUrl: proofFileName ? `proof-${proofFileName}` : undefined
+      } : undefined;
+
+      await createOrder(formData, paymentMethod, bankDetails);
 
       // Trigger Celebration Fireworks
       try {
@@ -447,16 +496,209 @@ export const CheckoutModal: React.FC = () => {
             )}
 
             {paymentMethod === 'bank_transfer' && (
-              <div className="p-4 bg-teal-500/10 rounded-2xl border border-teal-500/30 space-y-2 text-xs">
-                <div className="font-bold text-white uppercase tracking-wider">
-                  OFFICIAL AURAPK CORPORATE ACCOUNT DETAILS:
+              <div className="p-4 sm:p-5 bg-teal-950/20 rounded-2xl border border-teal-500/30 space-y-4 text-xs">
+                
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-teal-500/20 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-teal-400" />
+                    <span className="font-bold text-white uppercase tracking-wider">
+                      SELECT VERIFIED PAKISTANI BANK / RAAST
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-teal-400/80 font-mono flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" /> 1LINK & SBP Raast 24/7
+                  </span>
                 </div>
-                <div className="bg-[#121212] border border-white/10 p-3 rounded-2xl space-y-1 font-mono text-[11px] text-slate-300">
-                  <p>Bank: <strong>Meezan Bank Ltd (Islamic Banking)</strong></p>
-                  <p>Account Title: <strong>Aura Technologies PK (Pvt) Ltd</strong></p>
-                  <p>IBAN: <strong>PK54MEZN0001098200192801</strong></p>
-                  <p>Raast ID: <strong>03001234567</strong></p>
+
+                {/* Bank Accounts Switcher Chips */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {activeBankAccounts.map(account => (
+                    <button
+                      key={account.id}
+                      type="button"
+                      onClick={() => setSelectedBankId(account.id)}
+                      className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        selectedBankId === account.id
+                          ? 'border-teal-400 bg-teal-500/20 ring-1 ring-teal-400 shadow-md shadow-teal-500/10'
+                          : 'border-white/10 bg-[#121212] hover:border-white/20'
+                      }`}
+                    >
+                      <span className="font-black text-[11px] text-white truncate block">
+                        {account.shortName}
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-mono mt-1 flex items-center justify-between">
+                        <span>{account.branchCode}</span>
+                        {account.isPopular && (
+                          <span className="text-[8px] bg-teal-400/20 text-teal-300 font-bold px-1 rounded">
+                            FAST
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
                 </div>
+
+                {/* Selected Bank Account Full Details Box */}
+                {currentSelectedBank && (
+                  <div className="bg-[#0e0e0e] border border-teal-500/30 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse" />
+                        <span className="font-black text-sm text-white uppercase tracking-tight">
+                          {currentSelectedBank.bankName}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">
+                        VERIFIED CORPORATE
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                      {/* Account Title */}
+                      <div className="bg-[#161616] p-2.5 rounded-xl border border-white/5 flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Account Title</p>
+                          <p className="text-[11px] font-bold text-white">{currentSelectedBank.accountTitle}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(currentSelectedBank.accountTitle, 'Account Title')}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                          title="Copy Account Title"
+                        >
+                          {copiedField === 'Account Title' ? <Check className="w-3.5 h-3.5 text-teal-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+
+                      {/* Account Number */}
+                      <div className="bg-[#161616] p-2.5 rounded-xl border border-white/5 flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Account Number</p>
+                          <p className="text-[11px] font-mono font-bold text-teal-300">{currentSelectedBank.accountNumber}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(currentSelectedBank.accountNumber, 'Account Number')}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                          title="Copy Account Number"
+                        >
+                          {copiedField === 'Account Number' ? <Check className="w-3.5 h-3.5 text-teal-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+
+                      {/* IBAN Number */}
+                      <div className="sm:col-span-2 bg-[#161616] p-2.5 rounded-xl border border-white/5 flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">IBAN (International Bank Account Number)</p>
+                          <p className="text-xs font-mono font-black text-white tracking-wider">{currentSelectedBank.iban}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(currentSelectedBank.iban, 'IBAN')}
+                          className="p-1.5 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 hover:text-white transition-colors flex items-center gap-1 text-[10px] font-bold px-2 cursor-pointer"
+                          title="Copy IBAN"
+                        >
+                          {copiedField === 'IBAN' ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-teal-400" />
+                              <span>COPIED!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>COPY IBAN</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Raast ID & Branch */}
+                      {currentSelectedBank.raastId && (
+                        <div className="bg-[#161616] p-2.5 rounded-xl border border-white/5 flex items-center justify-between">
+                          <div>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Raast Instant ID</p>
+                            <p className="text-[11px] font-mono font-bold text-emerald-400">{currentSelectedBank.raastId}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(currentSelectedBank.raastId!, 'Raast ID')}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                            title="Copy Raast ID"
+                          >
+                            {copiedField === 'Raast ID' ? <Check className="w-3.5 h-3.5 text-teal-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="bg-[#161616] p-2.5 rounded-xl border border-white/5">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Branch & Location</p>
+                        <p className="text-[10px] text-slate-300 truncate">{currentSelectedBank.branchName}</p>
+                      </div>
+                    </div>
+
+                    {currentSelectedBank.notes && (
+                      <p className="text-[10px] text-teal-400/90 font-mono flex items-center gap-1.5 bg-teal-500/10 p-2 rounded-lg">
+                        <Info className="w-3.5 h-3.5 shrink-0" />
+                        <span>{currentSelectedBank.notes}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Transfer Verification Fields (Optional / Customer Confidence) */}
+                <div className="space-y-2.5 pt-1">
+                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                    PAYMENT PROOF / TRANSACTION REFERENCE (OPTIONAL):
+                  </span>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={bankTransactionId}
+                      onChange={e => setBankTransactionId(e.target.value)}
+                      placeholder="Transaction Reference / TID (e.g. 9821804)"
+                      className="bg-[#121212] border border-white/15 text-xs text-white p-2.5 rounded-xl outline-none font-mono focus:border-teal-400"
+                    />
+                    <input
+                      type="text"
+                      value={senderAccountName}
+                      onChange={e => setSenderAccountName(e.target.value)}
+                      placeholder="Sender Account Name (e.g. Ali Raza)"
+                      className="bg-[#121212] border border-white/15 text-xs text-white p-2.5 rounded-xl outline-none focus:border-teal-400"
+                    />
+                  </div>
+
+                  {/* Upload receipt proof screenshot */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-2.5 bg-[#121212] border border-dashed border-white/20 rounded-xl">
+                    <div className="flex items-center gap-2 text-[11px] text-slate-300">
+                      <Upload className="w-4 h-4 text-teal-400 shrink-0" />
+                      <span>{proofFileName ? `Attached: ${proofFileName}` : 'Attach Receipt Screenshot (Optional)'}</span>
+                    </div>
+                    <label className="bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg cursor-pointer transition-colors shrink-0">
+                      <span>{proofFileName ? 'Change File' : 'Browse Receipt'}</span>
+                      <input 
+                        type="file" 
+                        accept="image/*,.pdf" 
+                        onChange={handleProofFileUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+                  </div>
+
+                  {/* Direct WhatsApp Verification Shortcut */}
+                  <div className="flex items-center justify-between pt-1">
+                    <a
+                      href={`https://wa.me/923008451992?text=As-salamu+alaykum+AuraPK.+I+am+transferring+PKR+${totalAmount}+via+Bank+Transfer+(${currentSelectedBank?.shortName || 'Direct+Deposit'}).`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Need help? WhatsApp Finance Desk (+92 300 8451992)</span>
+                    </a>
+                  </div>
+                </div>
+
               </div>
             )}
 

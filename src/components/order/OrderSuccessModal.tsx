@@ -85,11 +85,31 @@ export const OrderSuccessModal: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between border-t border-white/10 pt-3 text-xs sm:text-sm font-black uppercase tracking-wider">
-            <span>Total Payable ({lastPlacedOrder.paymentMethod.toUpperCase()}):</span>
+            <span>Total Payable ({lastPlacedOrder.paymentMethod === 'bank_transfer' ? 'DIRECT BANK TRANSFER' : lastPlacedOrder.paymentMethod.toUpperCase()}):</span>
             <span className="text-[#059669] font-mono text-base sm:text-lg">
               {formatPKR(lastPlacedOrder.total)}
             </span>
           </div>
+
+          {lastPlacedOrder.paymentMethod === 'bank_transfer' && (
+            <div className="bg-teal-950/30 border border-teal-500/30 p-3.5 rounded-xl space-y-1.5 text-[11px]">
+              <div className="flex items-center justify-between">
+                <span className="font-black text-teal-400 uppercase tracking-wider">BANK TRANSFER DETAILS:</span>
+                <span className="text-[10px] bg-teal-500/20 text-teal-300 font-mono px-2 py-0.5 rounded">
+                  {lastPlacedOrder.bankTransferDetails?.bankName || 'Meezan Bank Ltd'}
+                </span>
+              </div>
+              {lastPlacedOrder.bankTransferDetails?.iban && (
+                <p className="font-mono text-slate-300">IBAN: <strong className="text-white">{lastPlacedOrder.bankTransferDetails.iban}</strong></p>
+              )}
+              {lastPlacedOrder.bankTransferDetails?.transactionId && (
+                <p className="font-mono text-emerald-400">Reference / TID: <strong>{lastPlacedOrder.bankTransferDetails.transactionId}</strong></p>
+              )}
+              <p className="text-[10px] text-slate-400 pt-1">
+                Please WhatsApp your payment screenshot with Order ID #{lastPlacedOrder.orderNumber} to <strong>+92 300 8451992</strong> for instant clearance.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

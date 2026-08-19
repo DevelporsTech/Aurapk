@@ -91,6 +91,100 @@ export const AVAILABLE_COUPONS = [
   }
 ];
 
+export const DEFAULT_BANK_ACCOUNTS = [
+  {
+    id: 'meezan',
+    bankName: 'Meezan Bank Ltd',
+    shortName: 'Meezan Islamic Bank',
+    accountTitle: 'AuraPK Retail (Pvt) Ltd',
+    accountNumber: '0109-0104829101',
+    iban: 'PK54MEZN0001090104829101',
+    branchCode: '0109',
+    branchName: 'DHA Phase 5 Commercial Branch, Lahore',
+    raastId: '03008451992',
+    isActive: true,
+    isPopular: true,
+    notes: '0% fees, Instant 1LINK & Raast clearing 24/7'
+  },
+  {
+    id: 'hbl',
+    bankName: 'Habib Bank Limited (HBL)',
+    shortName: 'HBL Pakistan',
+    accountTitle: 'AuraPK Official Commerce',
+    accountNumber: '2345-7901234503',
+    iban: 'PK12HABB0023457901234503',
+    branchCode: '2345',
+    branchName: 'Main Gulberg Boulevard Branch, Lahore',
+    raastId: 'aurapk@hbl',
+    isActive: true,
+    isPopular: true,
+    notes: 'Supports HBL Mobile App & Konnect instant transfer'
+  },
+  {
+    id: 'alfalah',
+    bankName: 'Bank Alfalah',
+    shortName: 'Bank Alfalah / Alfa',
+    accountTitle: 'AuraPK Online Store',
+    accountNumber: '5601-1008291002',
+    iban: 'PK36ALFH0056011008291002',
+    branchCode: '5601',
+    branchName: 'Blue Area Branch, Islamabad',
+    raastId: '03455551992',
+    isActive: true,
+    isPopular: false,
+    notes: 'Instant clearing via Alfa App & QR'
+  },
+  {
+    id: 'ubl',
+    bankName: 'United Bank Limited (UBL)',
+    shortName: 'UBL Digital',
+    accountTitle: 'AuraPK E-Commerce Hub',
+    accountNumber: '0981-2244556677',
+    iban: 'PK76UNIL0009812244556677',
+    branchCode: '0981',
+    branchName: 'I.I. Chundrigar Corporate Branch, Karachi',
+    raastId: '03001234567',
+    isActive: true,
+    isPopular: false,
+    notes: 'Direct transfer via UBL Digital App & Omni'
+  },
+  {
+    id: 'mcb',
+    bankName: 'MCB Bank Limited',
+    shortName: 'MCB Live',
+    accountTitle: 'AuraPK Logistics & Retail',
+    accountNumber: '1122-334455667788',
+    iban: 'PK23MUCB1122334455667788',
+    branchCode: '1122',
+    branchName: 'The Mall Road Branch, Rawalpindi',
+    raastId: '03123456789',
+    isActive: true,
+    isPopular: false,
+    notes: 'MCB Live App & 1Link IBFT supported'
+  },
+  {
+    id: 'raast_direct',
+    bankName: 'State Bank of Pakistan (RAAST Instant ID)',
+    shortName: 'Raast Instant Pay',
+    accountTitle: 'AuraPK Official Store (SBP Raast)',
+    accountNumber: '03008451992',
+    iban: 'PK54MEZN0001090104829101',
+    branchCode: 'RAAST',
+    branchName: 'State Bank of Pakistan Instant Clearing Grid',
+    raastId: '03008451992',
+    isActive: true,
+    isPopular: true,
+    notes: 'Zero transaction charges from ANY Pakistani banking app'
+  }
+];
+
+export const DEFAULT_BANK_SETTINGS = {
+  enabled: true,
+  accounts: DEFAULT_BANK_ACCOUNTS,
+  instructions: 'Transfer the exact order total to any of the official AuraPK verified Pakistani accounts below via Mobile App, Internet Banking, or ATM. Share your screenshot or Transaction ID for instant 1-click dispatch.',
+  whatsappVerificationNumber: '+92 300 8451992'
+};
+
 export const formatPKR = (amount: number): string => {
   return '₨ ' + amount.toLocaleString('en-PK');
 };

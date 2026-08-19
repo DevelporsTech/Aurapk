@@ -21,6 +21,7 @@ import { AuthView } from './components/auth/AuthView';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AuthModal } from './components/auth/AuthModal';
 import { ToastContainer } from './components/common/ToastContainer';
+import { AIAssistantWidget } from './components/ai/AIAssistantWidget';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
 const MainContent: React.FC = () => {
@@ -110,6 +111,7 @@ const MainContent: React.FC = () => {
       <ProductDetailModal />
       <AuthModal />
       <ToastContainer />
+      <AIAssistantWidget />
     </div>
   );
 };

@@ -4,26 +4,29 @@ import { Flame, Clock, ShoppingBag, Eye, Heart, Star, Zap, ArrowRight } from 'lu
 import { formatPKR } from '../../data/pakistanLocations';
 
 export const FlashDeals: React.FC = () => {
-  const { products, addToCart, toggleWishlist, isInWishlist, setQuickViewProduct, setActiveView, setFilterState } = useStore();
+  const { products, addToCart, toggleWishlist, isInWishlist, setQuickViewProduct, setActiveView, setFilterState, salesSettings } = useStore();
   
-  // Flash deal countdown timer simulation
+  // Flash deal countdown timer calculated from salesSettings
   const [timeLeft, setTimeLeft] = useState({ hours: 14, minutes: 38, seconds: 45 });
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev.seconds > 0) return { ...prev, seconds: prev.seconds - 1 };
-        if (prev.minutes > 0) return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        return { hours: 23, minutes: 59, seconds: 59 };
-      });
-    }, 1000);
+    const updateCountdown = () => {
+      const target = salesSettings?.flashDealsTargetTimestamp || (Date.now() + 24 * 60 * 60 * 1000);
+      const diff = Math.max(0, target - Date.now());
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeLeft({ hours, minutes, seconds });
+    };
+
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [salesSettings?.flashDealsTargetTimestamp]);
 
   const flashDealProducts = products.filter(p => p.isFlashDeal);
 
-  if (flashDealProducts.length === 0) return null;
+  if (salesSettings?.campaignActive === false || flashDealProducts.length === 0) return null;
 
   return (
     <section id="flash-deals-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -35,14 +38,14 @@ export const FlashDeals: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="bg-[#059669] text-black text-[9px] font-black px-2 py-0.5 rounded tracking-widest uppercase">
-                LIMITED DROP
+                {salesSettings?.campaignBadge || 'LIMITED DROP'}
               </span>
               <span className="text-xs text-[#059669] font-black uppercase tracking-[0.25em]">
-                PAKISTAN FLASH VAULT
+                {salesSettings?.flashDealsSubtitle || 'PAKISTAN FLASH VAULT'}
               </span>
             </div>
             <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tighter text-white italic">
-              SUPER DEALS & <span className="text-transparent stroke-text-white">STEALS</span>
+              {salesSettings?.flashDealsTitle || 'SUPER DEALS & STEALS'}
             </h2>
           </div>
 

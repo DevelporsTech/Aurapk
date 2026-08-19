@@ -1,21 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { HERO_SLIDES } from '../../data/mockProducts';
 import { useStore } from '../../context/StoreContext';
 import { ChevronLeft, ChevronRight, ArrowRight, Sparkles, Tag, ShieldCheck, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const HeroBanner: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const { setActiveView, setFilterState, products, setQuickViewProduct } = useStore();
+  const { setActiveView, setFilterState, products, setQuickViewProduct, siteDesign } = useStore();
+
+  const slides = siteDesign?.heroSlides && siteDesign.heroSlides.length > 0 
+    ? siteDesign.heroSlides 
+    : [];
 
   useEffect(() => {
+    if (slides.length === 0) return;
     const timer = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % HERO_SLIDES.length);
+      setCurrentSlide(prev => (prev + 1) % slides.length);
     }, 7000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
-  const slide = HERO_SLIDES[currentSlide];
+  const slideIndex = currentSlide < slides.length ? currentSlide : 0;
+  const slide = slides[slideIndex] || {
+    id: 'slide-1',
+    badge: 'Mega Gala 2026',
+    title: 'Up to 60% Off Across Pakistan',
+    subtitle: 'From Designer Lawn Pret to High-End Wireless ANC Earbuds.',
+    ctaText: 'Explore Gala Deals',
+    ctaCategory: 'smart-audio',
+    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=1200&q=80',
+    highlightCode: 'USE CODE: AZADI500'
+  };
+
   const featuredQuickItems = products.slice(0, 3);
 
   return (
@@ -120,7 +135,7 @@ export const HeroBanner: React.FC = () => {
             {/* Slide Indicators & Arrows */}
             <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs text-slate-400 font-bold uppercase tracking-widest">
               <div className="flex items-center gap-2">
-                {HERO_SLIDES.map((_, idx) => (
+                {slides.map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setCurrentSlide(idx)}
@@ -131,20 +146,20 @@ export const HeroBanner: React.FC = () => {
                   />
                 ))}
                 <span className="text-[10px] text-slate-400 font-mono ml-2">
-                  0{currentSlide + 1} / 0{HERO_SLIDES.length}
+                  0{currentSlide + 1} / 0{slides.length}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentSlide(prev => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length)}
+                  onClick={() => setCurrentSlide(prev => (prev - 1 + slides.length) % slides.length)}
                   className="w-8 h-8 rounded-full border border-white/20 hover:border-white hover:text-[#059669] flex items-center justify-center transition-colors"
                   aria-label="Previous"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setCurrentSlide(prev => (prev + 1) % HERO_SLIDES.length)}
+                  onClick={() => setCurrentSlide(prev => (prev + 1) % slides.length)}
                   className="w-8 h-8 rounded-full border border-white/20 hover:border-white hover:text-[#059669] flex items-center justify-center transition-colors"
                   aria-label="Next"
                 >
