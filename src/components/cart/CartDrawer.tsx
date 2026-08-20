@@ -10,7 +10,12 @@ import {
   ArrowRight, 
   ShieldCheck, 
   Truck,
-  CheckCircle2
+  CheckCircle2,
+  Ban,
+  AlertTriangle,
+  RotateCcw,
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import { formatPKR } from '../../data/pakistanLocations';
 
@@ -21,6 +26,7 @@ export const CartDrawer: React.FC = () => {
     cart, 
     removeFromCart, 
     updateCartQuantity, 
+    clearCart,
     cartSubtotal, 
     appliedCoupon, 
     couponDiscount, 
@@ -28,13 +34,23 @@ export const CartDrawer: React.FC = () => {
     removeCoupon,
     setIsCheckoutOpen,
     selectedCity,
-    setActiveView
+    setActiveView,
+    orders,
+    cancelOrder,
+    addToast
   } = useStore();
 
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [couponError, setCouponError] = useState('');
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
 
   if (!isCartOpen) return null;
+
+  // Active pending/processing orders that can be cancelled
+  const cancellableOrders = orders.filter(
+    o => o.status === 'pending' || o.status === 'processing'
+  );
 
   // Free shipping threshold in Pakistan: ₨ 2,999
   const freeShippingThreshold = 2999;
@@ -57,6 +73,19 @@ export const CartDrawer: React.FC = () => {
   const handleProceedToCheckout = () => {
     setIsCartOpen(false);
     setIsCheckoutOpen(true);
+  };
+
+  const handleCancelBagOrder = () => {
+    clearCart();
+    removeCoupon();
+    setIsConfirmingClear(false);
+    addToast('info', 'Bag Order Cancelled', 'Your shopping bag has been cleared and current bag order reset.');
+  };
+
+  const handleCancelActiveOrder = (orderId: string) => {
+    cancelOrder(orderId, 'Cancelled by customer via shopping bag');
+    setCancellingOrderId(null);
+    addToast('warning', 'Order Cancelled', `Order #${orderId.slice(-6).toUpperCase()} has been cancelled.`);
   };
 
   return (
@@ -87,13 +116,53 @@ export const CartDrawer: React.FC = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => setIsCartOpen(false)}
-            className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {cart.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsConfirmingClear(true)}
+                className="text-[10px] font-bold text-rose-400 hover:text-white bg-rose-950/40 hover:bg-rose-600 border border-rose-500/30 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                title="Cancel and empty this bag order"
+              >
+                <Ban className="w-3 h-3" />
+                <span>CANCEL BAG</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsCartOpen(false)}
+              className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* Cancel Confirmation Prompt */}
+        {isConfirmingClear && (
+          <div className="bg-rose-950/80 border-b border-rose-500/40 p-3.5 flex items-center justify-between animate-in fade-in duration-150">
+            <div className="flex items-center gap-2 text-xs text-rose-200">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>Cancel all items in bag?</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleCancelBagOrder}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] uppercase px-3 py-1 rounded-lg cursor-pointer transition-colors"
+              >
+                Yes, Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConfirmingClear(false)}
+                className="bg-white/10 hover:bg-white/20 text-slate-300 text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg cursor-pointer"
+              >
+                Keep
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Free Shipping Progress Indicator */}
         <div className="bg-[#111] p-4 border-b border-white/10">
@@ -115,8 +184,88 @@ export const CartDrawer: React.FC = () => {
           </div>
         </div>
 
-        {/* Cart Items List */}
-        <div className="flex-1 overflow-y-auto p-5 divide-y divide-white/10">
+        {/* Cart Items List & Cancellable Active Orders */}
+        <div className="flex-1 overflow-y-auto p-5 divide-y divide-white/10 custom-scrollbar">
+          
+          {/* Active Orders Quick Cancellation Widget */}
+          {cancellableOrders.length > 0 && (
+            <div className="pb-4 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase text-amber-400">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  Active Placed Orders ({cancellableOrders.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCartOpen(false);
+                    setActiveView('tracking');
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
+                >
+                  View All Orders
+                </button>
+              </div>
+
+              {cancellableOrders.slice(0, 2).map(order => (
+                <div 
+                  key={order.id}
+                  className="bg-[#121614] border border-amber-500/20 rounded-2xl p-3 space-y-2 text-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="font-mono font-bold text-white text-[11px] truncate">
+                        Order #{order.orderNumber || order.id.slice(-6).toUpperCase()}
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        {order.items.length} item(s) • {formatPKR(order.total)} ({order.customer?.city || 'Pakistan'})
+                      </p>
+                    </div>
+                    <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      {order.status}
+                    </span>
+                  </div>
+
+                  {cancellingOrderId === order.id ? (
+                    <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                      <span className="text-[10px] text-rose-300">Confirm cancellation?</span>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleCancelActiveOrder(order.id)}
+                          className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-[9px] uppercase px-2.5 py-1 rounded cursor-pointer"
+                        >
+                          Yes, Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCancellingOrderId(null)}
+                          className="bg-white/10 text-slate-300 text-[9px] font-bold px-2 py-1 rounded cursor-pointer"
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                      <span className="text-[9px] text-slate-500 font-mono">
+                        Dispatch pending
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCancellingOrderId(order.id)}
+                        className="text-[10px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                      >
+                        <Ban className="w-3 h-3" />
+                        <span>Cancel This Order</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {cart.length > 0 ? (
             cart.map(item => (
               <div key={item.id} className="py-4 first:pt-0 last:pb-0 flex items-center gap-3.5">
@@ -210,7 +359,7 @@ export const CartDrawer: React.FC = () => {
           )}
         </div>
 
-        {/* Footer: Coupon Engine, Summary, Checkout Button */}
+        {/* Footer: Coupon Engine, Summary, Checkout Button & Cancel Order */}
         {cart.length > 0 && (
           <div className="p-5 border-t border-white/10 bg-[#0c0c0c] space-y-4">
             
@@ -289,14 +438,25 @@ export const CartDrawer: React.FC = () => {
               </div>
             </div>
 
-            {/* Checkout Action Button */}
-            <button
-              onClick={handleProceedToCheckout}
-              className="w-full bg-[#059669] hover:bg-[#047857] text-white font-black text-xs uppercase tracking-widest py-4 px-6 rounded-full shadow-2xl flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer"
-            >
-              <span>PROCEED TO CHECKOUT (COD)</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              <button
+                onClick={handleProceedToCheckout}
+                className="w-full bg-[#059669] hover:bg-[#047857] text-white font-black text-xs uppercase tracking-widest py-4 px-6 rounded-full shadow-2xl flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer"
+              >
+                <span>PROCEED TO CHECKOUT (COD)</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsConfirmingClear(true)}
+                className="w-full bg-white/5 hover:bg-rose-950/40 hover:text-rose-300 text-slate-400 text-[11px] font-bold uppercase tracking-wider py-2.5 rounded-full border border-white/10 hover:border-rose-500/30 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Ban className="w-3.5 h-3.5 text-rose-400" />
+                <span>Cancel Order / Empty Bag</span>
+              </button>
+            </div>
 
             {/* Micro Trust Guarantee */}
             <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-bold uppercase tracking-wider">
@@ -312,3 +472,4 @@ export const CartDrawer: React.FC = () => {
     </div>
   );
 };
+

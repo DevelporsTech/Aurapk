@@ -1,13 +1,33 @@
 {
-  "name": "AuraPK Pakistan Online Store",
+  "id": "com.aurapk.app",
+  "name": "AuraPK — Pakistan Online Shopping & COD",
   "short_name": "AuraPK",
-  "description": "Pakistan's Premier E-Commerce Store with Cash on Delivery nationwide",
-  "start_url": "/",
+  "description": "Shop 100% authentic fashion, lawn, gadgets, attar, and leather with nationwide Cash on Delivery and express TCS & Leopards tracking.",
+  "start_url": "/?source=playstore",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#022c22",
+  "display_override": ["standalone", "minimal-ui", "window-controls-overlay"],
+  "background_color": "#080808",
   "theme_color": "#059669",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "dir": "ltr",
+  "lang": "en-PK",
+  "categories": ["shopping", "lifestyle", "business"],
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.aurapk.app",
+      "id": "com.aurapk.app"
+    }
+  ],
   "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/icon.png",
       "sizes": "192x192",
@@ -23,7 +43,44 @@
     {
       "src": "/app-logo.jpg",
       "sizes": "1024x1024",
-      "type": "image/jpeg"
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Track TCS Order",
+      "short_name": "Track Order",
+      "description": "Live courier and rider tracking across Pakistan",
+      "url": "/?view=tracking",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Flash Deals (Up to 70% Off)",
+      "short_name": "Flash Deals",
+      "description": "Exclusive daily discounts in PKR",
+      "url": "/?view=catalog&filter=flash",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Browse All Products",
+      "short_name": "Shop Catalog",
+      "description": "Explore 250+ Pakistani brands with Cash on Delivery",
+      "url": "/?view=catalog",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Account & Orders",
+      "short_name": "My Account",
+      "description": "Manage shipping addresses and order history",
+      "url": "/?view=account",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
     }
   ]
 }

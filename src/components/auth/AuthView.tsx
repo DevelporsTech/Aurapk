@@ -19,6 +19,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { PAKISTAN_CITIES, validatePakistaniPhone } from '../../data/pakistanLocations';
+import { AuraLogo } from '../common/AuraLogo';
+import { OtpVerificationCard } from './OtpVerificationCard';
 
 export const AuthView: React.FC = () => {
   const { 
@@ -184,16 +186,15 @@ export const AuthView: React.FC = () => {
     }, 600);
   };
 
-  const handleVerifyOtpAndComplete = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otpCode || otpCode.trim().length !== 4) {
+  const handleVerifyOtpCode = (enteredCode: string) => {
+    if (!enteredCode || enteredCode.trim().length !== 4) {
       setOtpError('Please enter the 4-digit verification code.');
       addToast('warning', 'Incomplete Code', 'Please enter all 4 digits.');
       return;
     }
 
     // Strictly check if entered OTP matches generated OTP
-    if (otpCode.trim() !== generatedOtp) {
+    if (enteredCode.trim() !== generatedOtp) {
       setOtpError('Incorrect verification code. Please check your SMS or click Resend.');
       addToast('error', 'Verification Failed', 'Invalid OTP code. Account cannot be created without verification.');
       return;
@@ -215,6 +216,7 @@ export const AuthView: React.FC = () => {
         );
       }
       setActiveView(password === 'unfavhamza' ? 'admin' : 'account');
+      addToast('success', 'Verification Successful! 🎉', 'Welcome to AuraPK.');
     }, 700);
   };
 
@@ -239,7 +241,10 @@ export const AuthView: React.FC = () => {
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 text-white">
       
       {/* Top Breadcrumb & Heading */}
-      <div className="text-center max-w-2xl mx-auto space-y-3 mb-8 sm:mb-12">
+      <div className="text-center max-w-2xl mx-auto space-y-4 mb-8 sm:mb-12">
+        <div className="flex justify-center">
+          <AuraLogo size="lg" />
+        </div>
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#059669]/15 border border-[#059669]/30 text-[10px] sm:text-xs font-black uppercase tracking-[0.25em] text-[#059669]">
           <Sparkles className="w-3.5 h-3.5" />
           <span>SECURE AUTHENTICATION • VERIFIED CUSTOMER PORTAL</span>
@@ -508,9 +513,6 @@ export const AuthView: React.FC = () => {
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
-                      <p className="text-[10px] text-slate-500 mt-1">
-                        Admin Access: Users providing master password <strong className="text-purple-400 font-mono">unfavhamza</strong> receive full admin privileges.
-                      </p>
                     </div>
                   )}
 
@@ -610,89 +612,25 @@ export const AuthView: React.FC = () => {
 
                 </form>
               ) : (
-                /* STEP 2: MANDATORY OTP VERIFICATION */
-                <form onSubmit={handleVerifyOtpAndComplete} className="space-y-5">
-                  <div className="bg-[#059669]/10 p-4 rounded-2xl border border-[#059669]/30 text-xs text-white flex items-center justify-between font-medium">
-                    <div>
-                      <p className="font-bold text-[#059669] uppercase">Verification Code Dispatched</p>
-                      <p className="text-slate-300 text-[11px]">Sent to: {phone || email}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { setIsOtpStep(false); setOtpError(''); }}
-                      className="text-xs text-white font-bold underline uppercase tracking-wider cursor-pointer hover:text-[#059669]"
-                    >
-                      Change Details
-                    </button>
-                  </div>
-
-                  {/* SMS Simulated Notification Banner */}
-                  <div className="p-3 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs">
-                      <Smartphone className="w-4 h-4 text-[#059669]" />
-                      <span className="text-slate-300">Incoming SMS OTP:</span>
-                    </div>
-                    <span className="font-mono text-base font-black text-[#059669] bg-[#059669]/20 px-3 py-1 rounded-xl border border-[#059669]/40 tracking-widest">
-                      {generatedOtp}
-                    </span>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-black uppercase tracking-wider text-slate-300 mb-2">
-                      ENTER 4-DIGIT VERIFICATION CODE *
-                    </label>
-                    <input
-                      id="otp-code-input"
-                      type="text"
-                      maxLength={4}
-                      value={otpCode}
-                      onChange={e => {
-                        setOtpCode(e.target.value.replace(/\D/g, ''));
-                        setOtpError('');
-                      }}
-                      placeholder="• • • •"
-                      className={`w-full bg-[#141414] border ${otpError ? 'border-rose-500' : 'border-white/20'} text-center tracking-[0.6em] text-3xl font-mono font-black text-white p-3.5 rounded-2xl outline-none focus:border-[#059669]`}
-                    />
-                    
-                    {otpError && (
-                      <div className="flex items-center gap-1.5 text-xs text-rose-400 mt-2 font-medium">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>{otpError}</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2">
-                      <span>Must match the 4-digit code</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newCode = Math.floor(1000 + Math.random() * 9000).toString();
-                          setGeneratedOtp(newCode);
-                          setOtpError('');
-                          addToast('info', 'New Code Sent 📲', `New verification code is ${newCode}`);
-                        }}
-                        className="text-[#059669] hover:underline font-bold cursor-pointer"
-                      >
-                        Resend Code
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-[#059669] hover:bg-[#047857] text-white font-black text-xs sm:text-sm uppercase tracking-widest py-4 rounded-full shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                  >
-                    {loading ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <span>VERIFY & COMPLETE REGISTRATION</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
+                /* STEP 2: MANDATORY OTP VERIFICATION WITH AUTO-FILL & TIMER */
+                <OtpVerificationCard
+                  generatedOtp={generatedOtp}
+                  targetPhoneOrEmail={phone || email}
+                  onVerify={handleVerifyOtpCode}
+                  onResend={() => {
+                    const newCode = Math.floor(1000 + Math.random() * 9000).toString();
+                    setGeneratedOtp(newCode);
+                    setOtpError('');
+                    addToast('info', 'New Code Sent 📲', `New verification code is ${newCode}`);
+                  }}
+                  onChangeTarget={() => {
+                    setIsOtpStep(false);
+                    setOtpError('');
+                  }}
+                  isLoading={loading}
+                  errorMessage={otpError}
+                  purposeLabel={mode === 'register' ? 'Account Registration' : 'Login'}
+                />
               )}
             </div>
           )}

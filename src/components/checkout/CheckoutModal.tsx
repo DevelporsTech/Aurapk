@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { 
   X, 
@@ -13,12 +13,18 @@ import {
   Upload,
   MessageCircle,
   QrCode,
-  Info
+  Info,
+  Search,
+  ChevronDown,
+  AlertCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   PAKISTAN_CITIES, 
+  searchPakistanCities,
   validatePakistaniPhone, 
-  formatPKR 
+  formatPKR,
+  CityInfo
 } from '../../data/pakistanLocations';
 import { ShippingAddress, PaymentMethod } from '../../types';
 import confetti from 'canvas-confetti';
@@ -38,6 +44,8 @@ export const CheckoutModal: React.FC = () => {
     bankSettings,
     addToast
   } = useStore();
+
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [formData, setFormData] = useState<ShippingAddress>({
     fullName: user?.name || '',
@@ -66,6 +74,70 @@ export const CheckoutModal: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [isCityComboboxOpen, setIsCityComboboxOpen] = useState(false);
+  const [checkoutCityQuery, setCheckoutCityQuery] = useState('');
+  const [checkoutHighlightedIndex, setCheckoutHighlightedIndex] = useState(0);
+
+  const freeShippingThreshold = 2999;
+  const shippingFee = cartSubtotal >= freeShippingThreshold ? 0 : selectedCity.deliveryFee;
+  const totalAmount = Math.max(0, cartSubtotal - couponDiscount + shippingFee);
+
+  const matchedCheckoutCities = searchPakistanCities(checkoutCityQuery);
+
+  // Keep postal code and province auto-synced with selected city
+  useEffect(() => {
+    if (!isCheckoutOpen) return;
+    setFormData(prev => ({
+      ...prev,
+      city: selectedCity.name,
+      province: selectedCity.province,
+      postalCode: selectedCity.postalCode
+    }));
+  }, [selectedCity, isCheckoutOpen]);
+
+  // Auto-select on mobile when typing in checkout without needing Enter
+  useEffect(() => {
+    if (!isCheckoutOpen) return;
+    const clean = checkoutCityQuery.trim().toLowerCase();
+    if (!clean) return;
+
+    const exactMatch = PAKISTAN_CITIES.find(
+      c => c.name.toLowerCase() === clean || c.aliases?.some(a => a.toLowerCase() === clean)
+    );
+
+    if (exactMatch) {
+      setSelectedCity(exactMatch);
+      setFormData(prev => ({
+        ...prev,
+        city: exactMatch.name,
+        province: exactMatch.province,
+        postalCode: exactMatch.postalCode
+      }));
+      return;
+    }
+
+    if (clean.length >= 3 && matchedCheckoutCities.length > 0) {
+      const timer = setTimeout(() => {
+        const topMatch = matchedCheckoutCities[0];
+        if (topMatch) {
+          if (
+            topMatch.name.toLowerCase().startsWith(clean) || 
+            topMatch.aliases?.some(a => a.toLowerCase().startsWith(clean))
+          ) {
+            setSelectedCity(topMatch);
+            setFormData(prev => ({
+              ...prev,
+              city: topMatch.name,
+              province: topMatch.province,
+              postalCode: topMatch.postalCode
+            }));
+          }
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [isCheckoutOpen, checkoutCityQuery, matchedCheckoutCities, setSelectedCity]);
 
   if (!isCheckoutOpen) return null;
 
@@ -78,20 +150,50 @@ export const CheckoutModal: React.FC = () => {
     setTimeout(() => setCopiedField(null), 2500);
   };
 
-  const freeShippingThreshold = 2999;
-  const shippingFee = cartSubtotal >= freeShippingThreshold ? 0 : selectedCity.deliveryFee;
-  const totalAmount = Math.max(0, cartSubtotal - couponDiscount + shippingFee);
+  const handleSelectCheckoutCity = (city: CityInfo) => {
+    setSelectedCity(city);
+    setFormData(prev => ({
+      ...prev,
+      city: city.name,
+      province: city.province,
+      postalCode: city.postalCode
+    }));
+    setIsCityComboboxOpen(false);
+    setCheckoutCityQuery('');
+    setCheckoutHighlightedIndex(0);
+  };
+
+  const handleCheckoutCityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (matchedCheckoutCities.length > 0) {
+        setCheckoutHighlightedIndex(prev => (prev < matchedCheckoutCities.length - 1 ? prev + 1 : 0));
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (matchedCheckoutCities.length > 0) {
+        setCheckoutHighlightedIndex(prev => (prev > 0 ? prev - 1 : matchedCheckoutCities.length - 1));
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (matchedCheckoutCities.length > 0) {
+        const cityToSelect = matchedCheckoutCities[checkoutHighlightedIndex] || matchedCheckoutCities[0];
+        if (cityToSelect) {
+          handleSelectCheckoutCity(cityToSelect);
+        }
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsCityComboboxOpen(false);
+    }
+  };
 
   const handleCityChange = (cityName: string) => {
-    const matchedCity = PAKISTAN_CITIES.find(c => c.name === cityName);
+    const matchedCity = PAKISTAN_CITIES.find(c => c.name.toLowerCase() === cityName.toLowerCase());
     if (matchedCity) {
-      setSelectedCity(matchedCity);
-      setFormData(prev => ({
-        ...prev,
-        city: matchedCity.name,
-        province: matchedCity.province,
-        postalCode: matchedCity.postalCode
-      }));
+      handleSelectCheckoutCity(matchedCity);
+    } else {
+      setFormData(prev => ({ ...prev, city: cityName }));
     }
   };
 
@@ -104,10 +206,28 @@ export const CheckoutModal: React.FC = () => {
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
-    if (!formData.fullName.trim()) errors.fullName = 'Full Name is required';
-    if (!validatePakistaniPhone(formData.phone)) errors.phone = 'Enter a valid Pakistani phone (e.g. 03001234567 or +92 300 1234567)';
-    if (!formData.address.trim()) errors.address = 'Complete street/house address is required';
-    if (!formData.area.trim()) errors.area = 'Area/Town/Sector is required';
+    
+    if (!formData.fullName.trim()) {
+      errors.fullName = 'Full recipient name is required';
+    } else if (formData.fullName.trim().length < 3) {
+      errors.fullName = 'Please enter full name (at least 3 letters)';
+    }
+
+    if (!formData.phone.trim()) {
+      errors.phone = 'Pakistani mobile number is required (03XX XXXXXXX)';
+    } else if (!validatePakistaniPhone(formData.phone)) {
+      errors.phone = 'Enter a valid Pakistani mobile number (e.g. 03001234567 or +92 300 1234567)';
+    }
+
+    if (!formData.address.trim()) {
+      errors.address = 'Complete street / house address is required for courier delivery';
+    } else if (formData.address.trim().length < 5) {
+      errors.address = 'Please provide complete house / street info (at least 5 characters)';
+    }
+
+    if (!formData.area.trim()) {
+      errors.area = 'Area / Sector / Town is required';
+    }
 
     if (paymentMethod === 'jazzcash' && !validatePakistaniPhone(jazzcashNumber)) {
       errors.jazzcash = 'Valid 11-digit JazzCash mobile number is required';
@@ -120,9 +240,27 @@ export const CheckoutModal: React.FC = () => {
     return Object.keys(errors).length === 0;
   };
 
+  const isNameValid = Boolean(formData.fullName.trim() && formData.fullName.trim().length >= 3);
+  const isPhoneValid = Boolean(formData.phone.trim() && validatePakistaniPhone(formData.phone));
+  const isAddressValid = Boolean(formData.address.trim() && formData.address.trim().length >= 5);
+  const isAreaValid = Boolean(formData.area.trim());
+  const isAllRequiredFilled = isNameValid && isPhoneValid && isAddressValid && isAreaValid;
+
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    setHasAttemptedSubmit(true);
+
+    if (!validateForm()) {
+      addToast(
+        'error', 
+        'Delivery Details Required', 
+        'Please provide your Full Name, Phone Number, and Complete Address to place order. Postal code is already auto-provided.'
+      );
+      if (formRef.current) {
+        formRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -200,46 +338,97 @@ export const CheckoutModal: React.FC = () => {
         </div>
 
         {/* Checkout Form */}
-        <form onSubmit={handleSubmitOrder} className="p-5 sm:p-7 overflow-y-auto flex-1 space-y-6">
+        <form ref={formRef} onSubmit={handleSubmitOrder} className="p-5 sm:p-7 overflow-y-auto flex-1 space-y-6">
           
+          {/* Missing Information Alert Banner */}
+          {hasAttemptedSubmit && !isAllRequiredFilled && (
+            <div className="bg-rose-950/80 border border-rose-500/60 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in duration-200">
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="font-bold text-rose-200 uppercase tracking-wide">
+                  Order Cannot Be Placed Yet — Missing Information
+                </p>
+                <p className="text-rose-300/90 leading-relaxed">
+                  Please provide your <strong>Full Name</strong>, <strong>Pakistani Mobile Number</strong>, and <strong>Complete Street Address</strong> below. 
+                  (Postal code <span className="font-mono font-bold text-emerald-400">{formData.postalCode}</span> is already auto-provided by AuraPK).
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Section 1: Customer Contact & Address */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#059669] border-b border-white/10 pb-2">
-              <MapPin className="w-4 h-4" />
-              <span>1. DELIVERY DESTINATION IN PAKISTAN</span>
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#059669]">
+                <MapPin className="w-4 h-4" />
+                <span>1. DELIVERY DESTINATION IN PAKISTAN</span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-400">
+                * REQUIRED FOR COURIER
+              </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Full Name */}
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  FULL RECIPIENT NAME *
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>FULL RECIPIENT NAME *</span>
+                  {isNameValid && <span className="text-[10px] text-emerald-400 font-bold">✓ Ready</span>}
                 </label>
                 <input
                   type="text"
                   required
                   value={formData.fullName}
-                  onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+                  onChange={e => {
+                    setFormData({ ...formData, fullName: e.target.value });
+                    if (formErrors.fullName) {
+                      setFormErrors(prev => {
+                        const copy = { ...prev };
+                        delete copy.fullName;
+                        return copy;
+                      });
+                    }
+                  }}
                   placeholder="e.g. Muhammad Farooq"
-                  className={`w-full bg-[#121212] border ${formErrors.fullName ? 'border-rose-500' : 'border-white/15'} text-xs sm:text-sm text-white p-3 rounded-2xl outline-none focus:border-[#059669]`}
+                  className={`w-full bg-[#121212] border ${formErrors.fullName ? 'border-rose-500 bg-rose-950/20' : 'border-white/15'} text-xs sm:text-sm text-white p-3 rounded-2xl outline-none focus:border-[#059669]`}
                 />
-                {formErrors.fullName && <p className="text-[10px] text-rose-400 mt-1">{formErrors.fullName}</p>}
+                {formErrors.fullName && (
+                  <p className="text-[10px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>{formErrors.fullName}</span>
+                  </p>
+                )}
               </div>
 
               {/* Phone Number with Pakistan prefix */}
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  MOBILE NUMBER (COURIER SMS & CALL) *
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>MOBILE NUMBER (COURIER SMS & CALL) *</span>
+                  {isPhoneValid && <span className="text-[10px] text-emerald-400 font-bold">✓ Valid</span>}
                 </label>
                 <input
                   type="tel"
                   required
                   value={formData.phone}
-                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={e => {
+                    setFormData({ ...formData, phone: e.target.value });
+                    if (formErrors.phone) {
+                      setFormErrors(prev => {
+                        const copy = { ...prev };
+                        delete copy.phone;
+                        return copy;
+                      });
+                    }
+                  }}
                   placeholder="03001234567 or +92 300 1234567"
-                  className={`w-full bg-[#121212] border ${formErrors.phone ? 'border-rose-500' : 'border-white/15'} text-xs sm:text-sm text-white p-3 rounded-2xl outline-none font-mono focus:border-[#059669]`}
+                  className={`w-full bg-[#121212] border ${formErrors.phone ? 'border-rose-500 bg-rose-950/20' : 'border-white/15'} text-xs sm:text-sm text-white p-3 rounded-2xl outline-none font-mono focus:border-[#059669]`}
                 />
-                {formErrors.phone && <p className="text-[10px] text-rose-400 mt-1">{formErrors.phone}</p>}
+                {formErrors.phone && (
+                  <p className="text-[10px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>{formErrors.phone}</span>
+                  </p>
+                )}
               </div>
 
               {/* Email */}
@@ -256,68 +445,244 @@ export const CheckoutModal: React.FC = () => {
                 />
               </div>
 
-              {/* City Selection */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  CITY (ESTIMATED DISPATCH) *
+              {/* City Selection Combobox */}
+              <div className="relative">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>CITY (ESTIMATED DISPATCH) *</span>
+                  <span className="text-[10px] text-[#059669] font-mono lowercase">
+                    {selectedCity.estimatedDeliveryDays} dispatch
+                  </span>
                 </label>
-                <select
-                  value={formData.city}
-                  onChange={e => handleCityChange(e.target.value)}
-                  className="w-full bg-[#121212] border border-white/15 text-xs sm:text-sm text-white p-3 rounded-2xl outline-none focus:border-[#059669]"
-                >
-                  {PAKISTAN_CITIES.map(c => (
-                    <option key={c.name} value={c.name} className="bg-[#121212] text-white">
-                      {c.name} ({c.province}) — {c.estimatedDeliveryDays}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsCityComboboxOpen(!isCityComboboxOpen)}
+                    className="w-full bg-[#121212] border border-white/15 text-xs sm:text-sm text-white p-3 rounded-2xl outline-none focus:border-[#059669] flex items-center justify-between text-left cursor-pointer hover:border-white/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 truncate pr-2">
+                      <MapPin className="w-4 h-4 text-[#059669] shrink-0" />
+                      <span className="font-bold truncate">{formData.city || 'Select City'}</span>
+                      <span className="text-slate-400 text-xs truncate">({formData.province})</span>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isCityComboboxOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isCityComboboxOpen && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-30" 
+                        onClick={() => setIsCityComboboxOpen(false)}
+                      />
+                      <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#0e1411] border border-emerald-500/30 rounded-2xl shadow-2xl z-40 p-2.5 text-white max-h-80 flex flex-col backdrop-blur-md animate-in fade-in duration-150">
+                        {/* Header & Done button */}
+                        <div className="flex items-center justify-between pb-1.5 border-b border-white/10 mb-1.5">
+                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                            Select Pakistan City
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIsCityComboboxOpen(false)}
+                            className="text-[10px] font-bold text-emerald-300 hover:text-white bg-emerald-500/20 px-2 py-0.5 rounded cursor-pointer"
+                          >
+                            Done ✓
+                          </button>
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="relative pb-1.5">
+                          <input
+                            type="text"
+                            value={checkoutCityQuery}
+                            onChange={e => {
+                              setCheckoutCityQuery(e.target.value);
+                              setCheckoutHighlightedIndex(0);
+                            }}
+                            onKeyDown={handleCheckoutCityKeyDown}
+                            placeholder="Type city (e.g. Lahore, Karachi, Rawalpindi)..."
+                            className="w-full bg-[#16211c] text-white text-xs pl-8 pr-8 py-2 rounded-xl border border-white/10 focus:border-[#059669] outline-none placeholder:text-slate-500"
+                            autoFocus
+                          />
+                          <Search className="w-3.5 h-3.5 text-[#059669] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          {checkoutCityQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setCheckoutCityQuery('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-full cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* 1-Tap Popular Metro Chips for Mobile */}
+                        <div className="pb-1.5 border-b border-white/5">
+                          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+                            {['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi', 'Faisalabad', 'Multan', 'Peshawar', 'Quetta', 'Sialkot'].map(popCity => {
+                              const isCurrent = formData.city.toLowerCase() === popCity.toLowerCase();
+                              return (
+                                <button
+                                  key={popCity}
+                                  type="button"
+                                  onClick={() => {
+                                    const found = PAKISTAN_CITIES.find(c => c.name.toLowerCase() === popCity.toLowerCase());
+                                    if (found) handleSelectCheckoutCity(found);
+                                  }}
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-lg shrink-0 transition-colors cursor-pointer ${
+                                    isCurrent
+                                      ? 'bg-emerald-500 text-black font-black'
+                                      : 'bg-white/5 text-slate-300 hover:bg-emerald-500/20 hover:text-emerald-200'
+                                  }`}
+                                >
+                                  {popCity}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* List */}
+                        <div className="overflow-y-auto flex-1 space-y-1 custom-scrollbar pr-1 max-h-48 pt-1">
+                          {matchedCheckoutCities.map((c, idx) => {
+                            const isSelected = formData.city.toLowerCase() === c.name.toLowerCase();
+                            const isHighlighted = idx === checkoutHighlightedIndex;
+                            return (
+                              <button
+                                key={`${c.name}-${c.province}`}
+                                type="button"
+                                onClick={() => handleSelectCheckoutCity(c)}
+                                onMouseEnter={() => setCheckoutHighlightedIndex(idx)}
+                                className={`w-full text-left px-2.5 py-2 min-h-[40px] rounded-xl text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-[#059669] text-black font-black'
+                                    : isHighlighted
+                                    ? 'bg-white/15 text-white ring-1 ring-emerald-500/40'
+                                    : 'text-slate-300 hover:bg-white/10 hover:text-white active:bg-white/20'
+                                }`}
+                              >
+                                <div className="flex flex-col min-w-0 pr-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold truncate">{c.name}</span>
+                                    {isSelected && (
+                                      <span className="text-[8px] uppercase tracking-wider bg-black/30 text-black font-bold px-1 rounded">
+                                        ✓ Selected
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className={`text-[10px] ${isSelected ? 'text-black/80' : 'text-slate-400'}`}>
+                                    {c.province} • Postal {c.postalCode}
+                                  </span>
+                                </div>
+                                <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
+                                  isSelected ? 'bg-black/20 text-black font-black' : 'bg-white/5 text-[#059669]'
+                                }`}>
+                                  ⚡ {c.estimatedDeliveryDays}
+                                </span>
+                              </button>
+                            );
+                          })}
+
+                          {matchedCheckoutCities.length === 0 && (
+                            <div className="p-3 text-center text-xs text-slate-400">
+                              No city matching "{checkoutCityQuery}". You can still type your full address and area below.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Area / Sector / Town */}
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  AREA / SECTOR / TOWN *
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>AREA / SECTOR / TOWN *</span>
+                  {isAreaValid && <span className="text-[10px] text-emerald-400 font-bold">✓ Ready</span>}
                 </label>
                 <input
                   type="text"
                   required
                   value={formData.area}
-                  onChange={e => setFormData({ ...formData, area: e.target.value })}
+                  onChange={e => {
+                    setFormData({ ...formData, area: e.target.value });
+                    if (formErrors.area) {
+                      setFormErrors(prev => {
+                        const copy = { ...prev };
+                        delete copy.area;
+                        return copy;
+                      });
+                    }
+                  }}
                   placeholder="e.g. DHA Phase 6, Gulshan-e-Iqbal, F-10"
-                  className={`w-full bg-[#121212] border ${formErrors.area ? 'border-rose-500' : 'border-white/15'} text-xs sm:text-sm text-white p-3 rounded-2xl outline-none focus:border-[#059669]`}
+                  className={`w-full bg-[#121212] border ${formErrors.area ? 'border-rose-500 bg-rose-950/20' : 'border-white/15'} text-xs sm:text-sm text-white p-3 rounded-2xl outline-none focus:border-[#059669]`}
                 />
-                {formErrors.area && <p className="text-[10px] text-rose-400 mt-1">{formErrors.area}</p>}
+                {formErrors.area && (
+                  <p className="text-[10px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>{formErrors.area}</span>
+                  </p>
+                )}
               </div>
 
-              {/* Postal Code */}
+              {/* Postal Code - Auto-Provided by AuraPK */}
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  POSTAL CODE
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <span>POSTAL CODE</span>
+                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.2 rounded">
+                      ⚡ Auto-Provided
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {selectedCity.name}
+                  </span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.postalCode}
-                  onChange={e => setFormData({ ...formData, postalCode: e.target.value })}
-                  placeholder="e.g. 54000"
-                  className="w-full bg-[#121212] border border-white/15 text-xs sm:text-sm text-white p-3 rounded-2xl outline-none font-mono focus:border-[#059669]"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.postalCode}
+                    readOnly
+                    className="w-full bg-[#161c18] border border-emerald-500/30 text-xs sm:text-sm text-emerald-300 p-3 rounded-2xl outline-none font-mono cursor-not-allowed select-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-emerald-400 font-mono font-bold">
+                    ✓ Verified
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Postal code is automatically supplied for {selectedCity.name}. No manual search needed.
+                </p>
               </div>
 
               {/* Complete Street Address */}
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  COMPLETE STREET / HOUSE / BUILDING ADDRESS *
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1.5 flex items-center justify-between">
+                  <span>COMPLETE STREET / HOUSE / BUILDING ADDRESS *</span>
+                  {isAddressValid && <span className="text-[10px] text-emerald-400 font-bold">✓ Ready</span>}
                 </label>
                 <input
                   type="text"
                   required
                   value={formData.address}
-                  onChange={e => setFormData({ ...formData, address: e.target.value })}
+                  onChange={e => {
+                    setFormData({ ...formData, address: e.target.value });
+                    if (formErrors.address) {
+                      setFormErrors(prev => {
+                        const copy = { ...prev };
+                        delete copy.address;
+                        return copy;
+                      });
+                    }
+                  }}
                   placeholder="e.g. House # 42, Street 8, Sector C, Near Jamia Masjid"
-                  className={`w-full bg-[#121212] border ${formErrors.address ? 'border-rose-500' : 'border-white/15'} text-xs sm:text-sm text-white p-3 rounded-2xl outline-none focus:border-[#059669]`}
+                  className={`w-full bg-[#121212] border ${formErrors.address ? 'border-rose-500 bg-rose-950/20' : 'border-white/15'} text-xs sm:text-sm text-white p-3 rounded-2xl outline-none focus:border-[#059669]`}
                 />
-                {formErrors.address && <p className="text-[10px] text-rose-400 mt-1">{formErrors.address}</p>}
+                {formErrors.address && (
+                  <p className="text-[10px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                    <AlertCircle className="w-3 h-3" />
+                    <span>{formErrors.address}</span>
+                  </p>
+                )}
               </div>
 
               {/* Order Notes */}
@@ -731,6 +1096,48 @@ export const CheckoutModal: React.FC = () => {
                 <span className="text-[#059669] font-mono text-lg">
                   {formatPKR(totalAmount)}
                 </span>
+              </div>
+            </div>
+
+            {/* Required Information Verification Checklist */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-3 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                <span>Delivery Verification Status</span>
+                <span className="font-mono text-[10px] text-slate-400">
+                  {isAllRequiredFilled ? (
+                    <span className="text-emerald-400 font-bold">✓ Ready for Dispatch</span>
+                  ) : (
+                    <span className="text-amber-400 font-bold">⚠️ Required Details Needed</span>
+                  )}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-mono">
+                <div className={`p-2 rounded-xl border flex items-center gap-1.5 ${
+                  isNameValid ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-rose-950/20 border-rose-500/30 text-rose-300'
+                }`}>
+                  {isNameValid ? <Check className="w-3 h-3 text-emerald-400" /> : <AlertCircle className="w-3 h-3 text-rose-400" />}
+                  <span className="truncate">Name: {isNameValid ? 'Filled' : 'Needed'}</span>
+                </div>
+
+                <div className={`p-2 rounded-xl border flex items-center gap-1.5 ${
+                  isPhoneValid ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-rose-950/20 border-rose-500/30 text-rose-300'
+                }`}>
+                  {isPhoneValid ? <Check className="w-3 h-3 text-emerald-400" /> : <AlertCircle className="w-3 h-3 text-rose-400" />}
+                  <span className="truncate">Phone: {isPhoneValid ? '03XX OK' : 'Needed'}</span>
+                </div>
+
+                <div className={`p-2 rounded-xl border flex items-center gap-1.5 ${
+                  isAddressValid && isAreaValid ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300' : 'bg-rose-950/20 border-rose-500/30 text-rose-300'
+                }`}>
+                  {isAddressValid && isAreaValid ? <Check className="w-3 h-3 text-emerald-400" /> : <AlertCircle className="w-3 h-3 text-rose-400" />}
+                  <span className="truncate">Address: {isAddressValid ? 'Filled' : 'Needed'}</span>
+                </div>
+
+                <div className="p-2 rounded-xl border bg-emerald-500/15 border-emerald-500/40 text-emerald-300 flex items-center gap-1.5">
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  <span className="truncate">Postal: {formData.postalCode} (Auto)</span>
+                </div>
               </div>
             </div>
 

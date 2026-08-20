@@ -97,6 +97,9 @@ interface StoreContextType {
     bankTransferDetails?: Order['bankTransferDetails']
   ) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: any) => void;
+  cancelOrder: (orderId: string, reason?: string) => void;
+  reorderItems: (items: CartItem[]) => void;
+  deleteOrder: (orderId: string) => void;
   
   // Bank Payment & Pakistani Banking Gateway
   bankSettings: BankTransferSettings;
@@ -140,6 +143,13 @@ interface StoreContextType {
   editProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
   
+  // Legal & Play Store Policy Compliance
+  isLegalModalOpen: boolean;
+  setIsLegalModalOpen: (open: boolean) => void;
+  legalModalTab: 'privacy' | 'terms' | 'data-safety' | 'returns';
+  setLegalModalTab: (tab: 'privacy' | 'terms' | 'data-safety' | 'returns') => void;
+  openLegalModal: (tab?: 'privacy' | 'terms' | 'data-safety' | 'returns') => void;
+
   // Toasts & Notifications
   toasts: ToastMessage[];
   addToast: (type: ToastMessage['type'], title: string, message: string) => void;
@@ -422,11 +432,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms' | 'data-safety' | 'returns'>('privacy');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const openAuthModal = (mode: 'login' | 'register' = 'login') => {
     setAuthModalMode(mode);
     setIsAuthModalOpen(true);
+  };
+
+  const openLegalModal = (tab: 'privacy' | 'terms' | 'data-safety' | 'returns' = 'privacy') => {
+    setLegalModalTab(tab);
+    setIsLegalModalOpen(true);
   };
 
   // Sync to LocalStorage
@@ -1080,7 +1097,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateOrderStatus = (orderId: string, status: any) => {
     setOrders(prev =>
       prev.map(ord => {
-        if (ord.id === orderId) {
+        if (ord.id === orderId || ord.orderNumber === orderId) {
           const updatedTimeline = ord.trackingTimeline.map(evt => {
             if (evt.status === status) return { ...evt, completed: true, timestamp: 'Updated' };
             return evt;
@@ -1091,6 +1108,59 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
     addToast('success', 'Order Updated', `Order ${orderId} status set to ${status}`);
+  };
+
+  const cancelOrder = (orderId: string, reason?: string) => {
+    setOrders(prev =>
+      prev.map(ord => {
+        if (ord.id === orderId || ord.orderNumber === orderId) {
+          const cancelledTimeline = [
+            ...ord.trackingTimeline,
+            {
+              status: 'cancelled' as const,
+              title: 'Order Cancelled',
+              description: reason || 'Order was cancelled by customer.',
+              location: 'Customer Request',
+              timestamp: 'Just now',
+              completed: true
+            }
+          ];
+          return {
+            ...ord,
+            status: 'cancelled' as const,
+            trackingTimeline: cancelledTimeline
+          };
+        }
+        return ord;
+      })
+    );
+    addToast('info', 'Order Cancelled', `Order ${orderId} has been cancelled.`);
+  };
+
+  const reorderItems = (items: CartItem[]) => {
+    if (!items || items.length === 0) return;
+    setCart(prev => {
+      const nextCart = [...prev];
+      items.forEach(newItem => {
+        const existingIdx = nextCart.findIndex(it => it.productId === newItem.productId && it.selectedColor === newItem.selectedColor && it.selectedSize === newItem.selectedSize);
+        if (existingIdx >= 0) {
+          nextCart[existingIdx] = {
+            ...nextCart[existingIdx],
+            quantity: Math.min(nextCart[existingIdx].quantity + newItem.quantity, nextCart[existingIdx].stock)
+          };
+        } else {
+          nextCart.push({ ...newItem, id: `${newItem.productId}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}` });
+        }
+      });
+      return nextCart;
+    });
+    setIsCartOpen(true);
+    addToast('success', 'Items Added to Cart', `${items.length} item(s) added to your cart for checkout.`);
+  };
+
+  const deleteOrder = (orderId: string) => {
+    setOrders(prev => prev.filter(o => o.id !== orderId && o.orderNumber !== orderId));
+    addToast('info', 'Order Removed', `Order ${orderId} removed from records.`);
   };
 
   // Courier & Rider Admin Controls
@@ -1293,6 +1363,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         orders,
         createOrder,
         updateOrderStatus,
+        cancelOrder,
+        reorderItems,
+        deleteOrder,
         courierSettings,
         updateCourierSettings,
         toggleGlobalRiderPhone,
@@ -1315,6 +1388,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         authModalMode,
         setAuthModalMode,
         openAuthModal,
+        isLegalModalOpen,
+        setIsLegalModalOpen,
+        legalModalTab,
+        setLegalModalTab,
+        openLegalModal,
         updateUserProfile,
         addProduct,
         editProduct,

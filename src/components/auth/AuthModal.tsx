@@ -15,6 +15,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { validatePakistaniPhone } from '../../data/pakistanLocations';
+import { AuraLogoIcon } from '../common/AuraLogo';
 
 export const AuthModal: React.FC = () => {
   const { 
@@ -186,8 +187,8 @@ export const AuthModal: React.FC = () => {
 
         {/* Brand Header */}
         <div className="text-center space-y-1.5 pt-2">
-          <div className="w-11 h-11 rounded-2xl bg-[#059669] flex items-center justify-center text-black font-black text-xl mx-auto shadow-md">
-            A
+          <div className="flex justify-center mx-auto">
+            <AuraLogoIcon sizeClass="w-12 h-12" />
           </div>
           <h3 className="text-lg sm:text-xl font-display font-black text-white uppercase tracking-tight italic">
             {mode === 'login' ? 'SIGN IN TO AURA.PK' : 'CREATE VERIFIED ACCOUNT'}

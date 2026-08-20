@@ -37,7 +37,6 @@ import { Product, Order } from '../../types';
 export const AdminDashboard: React.FC = () => {
   const { 
     user, 
-    grantAdminAccess, 
     products, 
     orders, 
     updateOrderStatus, 
@@ -51,13 +50,11 @@ export const AdminDashboard: React.FC = () => {
     coupons,
     salesSettings,
     siteDesign,
-    bankSettings
+    bankSettings,
+    setActiveView
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'courier-rider' | 'coupons' | 'sales' | 'design' | 'bank-payments' | 'inventory'>('overview');
-  const [adminPasswordInput, setAdminPasswordInput] = useState('');
-  const [showAdminPass, setShowAdminPass] = useState(false);
-  const [adminPassError, setAdminPassError] = useState('');
 
   // Courier settings local form state
   const [riderFormName, setRiderFormName] = useState(courierSettings.defaultRiderName);
@@ -83,20 +80,33 @@ export const AdminDashboard: React.FC = () => {
   const [newCategory, setNewCategory] = useState('mens-wear');
   const [newBrand, setNewBrand] = useState('J. Junaid Jamshed');
 
-  const handleAdminGateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adminPasswordInput) {
-      setAdminPassError('Please enter the Admin Master Password.');
-      return;
-    }
-    const success = grantAdminAccess(adminPasswordInput.trim());
-    if (!success) {
-      setAdminPassError('Invalid admin master password. Access denied.');
-    } else {
-      setAdminPassError('');
-      setAdminPasswordInput('');
-    }
-  };
+  // If user is not an admin, do not show master admin gate to customers
+  if (!user?.isAdmin) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-20 text-white space-y-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-slate-400">
+          <Lock className="w-8 h-8" />
+        </div>
+
+        <div className="space-y-2">
+          <h1 className="font-display text-2xl font-black uppercase tracking-tight text-white">
+            ACCESS RESTRICTED
+          </h1>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            This management dashboard is restricted to authorized store administrators.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setActiveView('home')}
+          className="inline-flex items-center gap-2 bg-[#059669] hover:bg-[#047857] text-black font-black text-xs uppercase tracking-wider px-6 py-3 rounded-full transition-all cursor-pointer shadow-lg active:scale-95"
+        >
+          <span>RETURN TO STORE</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   const handleSaveCourierSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,78 +136,6 @@ export const AdminDashboard: React.FC = () => {
     );
     setEditingOrderRider(null);
   };
-
-  // If user is not an admin, render the Admin Gate
-  if (!user?.isAdmin) {
-    return (
-      <div className="max-w-xl mx-auto px-4 py-16 text-white space-y-6">
-        <div className="bg-[#0e0e0e] border border-purple-500/30 rounded-3xl p-8 sm:p-10 shadow-2xl space-y-6 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center mx-auto text-purple-400">
-            <Lock className="w-8 h-8" />
-          </div>
-
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-[10px] font-black uppercase tracking-widest text-purple-300">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>AuraPK Merchant Command Center</span>
-            </div>
-            <h1 className="font-display text-2xl sm:text-3xl font-black uppercase italic tracking-tight text-white">
-              ADMIN MASTER AUTHENTICATION
-            </h1>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-              Enter the master administrator passcode to unlock live sales metrics, inventory adjustments, and courier booking operations.
-            </p>
-          </div>
-
-          <form onSubmit={handleAdminGateSubmit} className="space-y-4 text-left pt-2">
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-300 mb-1.5">
-                MASTER ADMIN PASSCODE *
-              </label>
-              <div className="relative">
-                <input
-                  id="admin-master-password"
-                  type={showAdminPass ? 'text' : 'password'}
-                  required
-                  value={adminPasswordInput}
-                  onChange={e => {
-                    setAdminPasswordInput(e.target.value);
-                    setAdminPassError('');
-                  }}
-                  placeholder="Enter master password"
-                  className={`w-full bg-[#141414] border ${adminPassError ? 'border-rose-500' : 'border-white/15'} text-sm text-white p-3.5 pl-10 pr-10 rounded-2xl outline-none focus:border-purple-500`}
-                />
-                <KeyRound className="w-4 h-4 text-purple-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <button
-                  type="button"
-                  onClick={() => setShowAdminPass(!showAdminPass)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                >
-                  {showAdminPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {adminPassError && (
-                <p className="text-xs text-rose-400 font-medium mt-1.5">{adminPassError}</p>
-              )}
-            </div>
-
-            <button
-              id="admin-unlock-btn"
-              type="submit"
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-black text-xs sm:text-sm uppercase tracking-widest py-4 rounded-full shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-            >
-              <span>UNLOCK COMMAND CENTER</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-
-          <p className="text-[10px] text-slate-500 font-mono">
-            Authorized store staff and administrative managers only.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   const handleCreateProduct = (e: React.FormEvent) => {
     e.preventDefault();

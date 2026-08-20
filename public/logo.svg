@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <rect width="100" height="100" rx="22" fill="#022c22" />
+  <path d="M50 8 L88 26 V70 L50 94 L12 70 V26 Z" fill="url(#emeraldGrad)" stroke="#34d399" stroke-width="3" stroke-linejoin="round" />
+  <path d="M50 18 L76 31 V64 L50 82 L24 64 V31 Z" fill="#064e3b" fill-opacity="0.8" stroke="#10b981" stroke-width="1.5" />
+  <path d="M50 24 L68 70 H56 L51.5 57 H48.5 L44 70 H32 L50 24Z" fill="#ffffff" />
+  <path d="M50 40 L53.5 49 H46.5 Z" fill="#059669" />
+  <path d="M62 26 C64 29 64 34 60 37 C58 35 58 31 60 28 Z" fill="#fbbf24" />
+  <circle cx="68" cy="27" r="2.5" fill="#fef08a" />
+  <defs>
+    <linearGradient id="emeraldGrad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#059669" />
+      <stop offset="0.5" stop-color="#047857" />
+      <stop offset="1" stop-color="#064e3b" />
+    </linearGradient>
+  </defs>
+</svg>

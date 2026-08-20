@@ -19,18 +19,27 @@ import { OrderTrackingView } from './components/order/OrderTrackingView';
 import { UserProfileView } from './components/profile/UserProfileView';
 import { AuthView } from './components/auth/AuthView';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { PlayStoreLaunchHub } from './components/playstore/PlayStoreLaunchHub';
+import { LegalModal } from './components/legal/LegalModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { ToastContainer } from './components/common/ToastContainer';
 import { AIAssistantWidget } from './components/ai/AIAssistantWidget';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { activeView, setActiveView, products } = useStore();
+  const { 
+    activeView, 
+    setActiveView, 
+    products,
+    isLegalModalOpen,
+    setIsLegalModalOpen,
+    legalModalTab
+  } = useStore();
 
   const trendingProducts = products.filter(p => p.isBestSeller || p.isNewArrival).slice(0, 6);
 
   return (
-    <div className="min-h-screen bg-[#080808] text-white flex flex-col font-sans selection:bg-[#059669] selection:text-black">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#080808] text-white flex flex-col font-sans selection:bg-[#059669] selection:text-black">
       {/* Top Banner */}
       <AnnouncementBar />
 
@@ -96,6 +105,8 @@ const MainContent: React.FC = () => {
         {(activeView === 'account' || (activeView as string) === 'profile') && <UserProfileView />}
 
         {activeView === 'admin' && <AdminDashboard />}
+
+        {activeView === 'playstore-guide' && <PlayStoreLaunchHub />}
       </main>
 
       {/* Footer */}
@@ -112,6 +123,11 @@ const MainContent: React.FC = () => {
       <AuthModal />
       <ToastContainer />
       <AIAssistantWidget />
+      <LegalModal
+        isOpen={isLegalModalOpen}
+        onClose={() => setIsLegalModalOpen(false)}
+        initialTab={legalModalTab}
+      />
     </div>
   );
 };

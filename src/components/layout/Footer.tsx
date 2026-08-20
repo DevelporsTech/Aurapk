@@ -10,9 +10,10 @@ import {
   ArrowRight,
   CheckCircle2
 } from 'lucide-react';
+import { AuraLogo } from '../common/AuraLogo';
 
 export const Footer: React.FC = () => {
-  const { setActiveView, setFilterState, addToast } = useStore();
+  const { setActiveView, setFilterState, addToast, user, openLegalModal } = useStore();
   const [emailInput, setEmailInput] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
 
@@ -77,14 +78,7 @@ export const Footer: React.FC = () => {
         
         {/* Col 1: Brand & Contact */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-baseline">
-            <span className="font-display font-black text-2xl sm:text-3xl tracking-tighter text-white uppercase">
-              AURA<span className="text-[#059669]">.</span>PK
-            </span>
-            <span className="ml-2 text-[9px] font-black uppercase tracking-[0.25em] text-[#059669] border border-[#059669]/40 px-1.5 py-0.5 rounded">
-              OFFICIAL
-            </span>
-          </div>
+          <AuraLogo size="md" />
           <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-sm">
             Pakistan’s premier multi-category digital shopping destination. Offering 100% authentic designer apparel, audio tech, fragrances, and genuine leather goods with Cash on Delivery nationwide.
           </p>
@@ -144,25 +138,32 @@ export const Footer: React.FC = () => {
               </button>
             </li>
             <li>
-              <span className="hover:text-[#059669] transition-colors cursor-pointer" onClick={() => addToast('info', 'Cash on Delivery', 'COD is available in all 250+ cities across Pakistan without any extra handling fees.')}>
+              <button onClick={() => openLegalModal('returns')} className="hover:text-[#059669] transition-colors text-left">
                 Cash on Delivery (COD) Policy
-              </span>
-            </li>
-            <li>
-              <span className="hover:text-[#059669] transition-colors cursor-pointer" onClick={() => addToast('info', '7-Day Return Policy', 'Doorstep pickup returns within 7 days of delivery. Full refund via JazzCash/Bank.')}>
-                7-Day Easy Return & Refund
-              </span>
-            </li>
-            <li>
-              <span className="hover:text-[#059669] transition-colors cursor-pointer" onClick={() => addToast('info', 'Shipping Times', 'Karachi, Lahore, Islamabad: 24-48 Hours. Other cities: 2-4 Days.')}>
-                Shipping Rates & Delivery Times
-              </span>
-            </li>
-            <li>
-              <button onClick={() => setActiveView('admin')} className="text-[#059669] hover:underline font-bold uppercase tracking-wider text-[11px]">
-                Merchant / Admin Portal
               </button>
             </li>
+            <li>
+              <button onClick={() => openLegalModal('returns')} className="hover:text-[#059669] transition-colors text-left">
+                7-Day Easy Return & Refund
+              </button>
+            </li>
+            <li>
+              <button onClick={() => openLegalModal('data-safety')} className="hover:text-[#059669] transition-colors text-left">
+                Data Safety & Account Erasure
+              </button>
+            </li>
+            <li>
+              <button onClick={() => setActiveView('playstore-guide')} className="text-emerald-400 hover:underline font-bold uppercase tracking-wider text-[11px] flex items-center gap-1">
+                <span>Google Play App Hub</span>
+              </button>
+            </li>
+            {user?.isAdmin && (
+              <li>
+                <button onClick={() => setActiveView('admin')} className="text-[#059669] hover:underline font-bold uppercase tracking-wider text-[11px]">
+                  Merchant / Admin Portal
+                </button>
+              </li>
+            )}
           </ul>
         </div>
 
@@ -216,11 +217,17 @@ export const Footer: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
         <p>© 2026 AuraPK Technologies Ltd. All Rights Reserved. Built for Pakistan.</p>
         <div className="flex items-center gap-4 text-slate-400 font-medium">
-          <span>Privacy</span>
+          <button onClick={() => openLegalModal('privacy')} className="hover:text-[#059669] transition-colors cursor-pointer">
+            Privacy Policy
+          </button>
           <span>•</span>
-          <span>Terms</span>
+          <button onClick={() => openLegalModal('terms')} className="hover:text-[#059669] transition-colors cursor-pointer">
+            Terms of Service
+          </button>
           <span>•</span>
-          <span>Sitemap</span>
+          <button onClick={() => openLegalModal('data-safety')} className="hover:text-[#059669] transition-colors cursor-pointer">
+            Data Safety
+          </button>
           <span>•</span>
           <span className="text-[#059669] font-black uppercase tracking-widest">100% Halal Verified</span>
         </div>
